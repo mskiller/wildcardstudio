@@ -15,4 +15,9 @@ export const generatorApi = {
     api.post<{ ok: boolean; path: string; entry_count: number }>(
       '/generator/create', body
     ).then((r) => r.data),
+
+  processPrompt: (prompt: string, count = 1) =>
+    api.post<{ original: string; processed: string[] }>(
+      '/generator/process-prompt', { prompt, count }
+    ).then((r) => r.data),
 }
