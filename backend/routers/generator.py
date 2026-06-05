@@ -2,7 +2,7 @@
 import os
 import yaml
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlmodel import Session, select
 
@@ -18,8 +18,8 @@ settings = get_settings()
 
 
 class ProcessPromptRequest(BaseModel):
-    prompt: str
-    count: int = 1
+    prompt: str = Field(..., min_length=1)
+    count: int = Field(default=1, ge=1, le=100)
 
 
 class GeneratorPreviewRequest(BaseModel):

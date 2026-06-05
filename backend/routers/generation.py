@@ -71,8 +71,16 @@ def txt2img(body: Txt2ImgRequest, session: Session = Depends(get_session)):
     original_prompt = body.prompt
     processed_prompt = process_prompt(session, original_prompt)
 
+    original_negative_prompt = body.negative_prompt
+    processed_negative_prompt = (
+        process_prompt(session, original_negative_prompt)
+        if original_negative_prompt is not None
+        else None
+    )
+
     request_data = body.model_dump()
     request_data["prompt"] = processed_prompt # Use processed prompt for connector call
+    request_data["negative_prompt"] = processed_negative_prompt
     provider = request_data["provider"]
     base_url = generation_connector.normalize_base_url(provider, request_data.get("base_url"))
 
@@ -88,7 +96,7 @@ def txt2img(body: Txt2ImgRequest, session: Session = Depends(get_session)):
             provider=provider,
             base_url=base_url,
             prompt=original_prompt, # Keep original wildcard prompt in main column
-            negative_prompt=body.negative_prompt,
+            negative_prompt=original_negative_prompt,
             model=body.model or parameters.get("model"),
             sampler=body.sampler or parameters.get("sampler"),
             scheduler=body.scheduler or parameters.get("scheduler"),
@@ -104,6 +112,7 @@ def txt2img(body: Txt2ImgRequest, session: Session = Depends(get_session)):
                     "request": _public_request_metadata(request_data, base_url),
                     "response": _public_response_metadata(connector_response),
                     "processed_prompt": processed_prompt, # Add processed prompt here
+                    "processed_negative_prompt": processed_negative_prompt,
                 }
             ),
             status="completed",
