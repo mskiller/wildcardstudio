@@ -1,6 +1,7 @@
 """F05 · Détecteur de doublons"""
-import json
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 from sqlmodel import Session, select
@@ -11,6 +12,7 @@ from models.scan import DuplicateGroup, DuplicateMember
 from services.fuzzy_matcher import find_duplicates
 
 router = APIRouter()
+logger = logging.getLogger("wildcardstudio.duplicates")
 
 
 class ScanRequest(BaseModel):
@@ -24,7 +26,7 @@ class BatchAction(BaseModel):
 
 
 @router.post("/scan")
-async def scan_duplicates(req: ScanRequest, session: Session = Depends(get_session)):
+def scan_duplicates(req: ScanRequest, session: Session = Depends(get_session)):
     """Run duplicate scan and persist results."""
     # Load entries
     query = select(WildcardEntry, WildcardFile).join(
@@ -37,6 +39,12 @@ async def scan_duplicates(req: ScanRequest, session: Session = Depends(get_sessi
         if req.scope and not wf.path.startswith(req.scope):
             continue
         entries.append({"id": entry.id, "file": wf.path, "content": entry.content})
+    logger.info(
+        "Duplicate scan started: %d entries, threshold=%d, scope=%s",
+        len(entries),
+        req.threshold,
+        req.scope or "all",
+    )
 
     # Clear old pending groups
     old_groups = session.exec(
@@ -50,6 +58,7 @@ async def scan_duplicates(req: ScanRequest, session: Session = Depends(get_sessi
 
     # Run detection
     groups = find_duplicates(entries, threshold=req.threshold)
+    logger.info("Duplicate scan matched %d groups.", len(groups))
 
     # Persist
     for g in groups:
@@ -63,6 +72,7 @@ async def scan_duplicates(req: ScanRequest, session: Session = Depends(get_sessi
                 similarity=m.similarity,
             ))
     session.commit()
+    logger.info("Duplicate scan persisted %d groups.", len(groups))
 
     return {
         "groups_found": len(groups),

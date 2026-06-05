@@ -44,3 +44,44 @@ def test_no_duplicates():
 def test_empty_entries():
     groups = find_duplicates([], threshold=85)
     assert groups == []
+
+
+def test_large_unique_set_uses_candidate_blocking(monkeypatch):
+    calls = 0
+
+    def counted_ratio(left: str, right: str) -> float:
+        nonlocal calls
+        calls += 1
+        return 0
+
+    monkeypatch.setattr("services.fuzzy_matcher.fuzz.token_sort_ratio", counted_ratio)
+    entries = [
+        {
+            "id": index,
+            "file": f"file-{index}.txt",
+            "content": f"unique_token_{index} common prompt fragment",
+        }
+        for index in range(1_200)
+    ]
+
+    assert find_duplicates(entries, threshold=85) == []
+    assert calls < 20_000
+
+
+def test_large_set_still_finds_blocked_fuzzy_duplicate():
+    entries = [
+        {
+            "id": index,
+            "file": f"file-{index}.txt",
+            "content": f"unique_token_{index} common prompt fragment",
+        }
+        for index in range(300)
+    ]
+    entries.extend([
+        {"id": 10_001, "file": "a.txt", "content": "cinematic lighting, dramatic shadows, portrait"},
+        {"id": 10_002, "file": "b.txt", "content": "cinematic light, dramatic shadow, portrait"},
+    ])
+
+    groups = find_duplicates(entries, threshold=80)
+
+    assert any({10_001, 10_002}.issubset({member.entry_id for member in group.members}) for group in groups)
