@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useState, useEffect, useMemo } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Wand2, Download, Copy, Play } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generatorApi } from '@/api/generator'
@@ -10,6 +10,7 @@ import { explorerApi } from '@/api/explorer'
 
 export default function GeneratorPage() {
   const [activeTab, setActiveTab] = useState<'create' | 'test'>('create')
+  const qc = useQueryClient()
   
   // Existing Generator State
   const [name, setName] = useState('')
@@ -20,8 +21,7 @@ export default function GeneratorPage() {
 
   // Tester State
   const [testPrompt, setTestPrompt] = useState('')
-  const [testCount, setTestCount] = useState(3)
-  const [wildcardFilesList, setWildcardFilesList] = useState<string[]>([])
+  const [testCount, setTestCount] = useState<number | ''>(3)
   
   const pendingPromptForGenerator = useTagStore((s) => s.pendingPromptForGenerator)
   const clearPendingPrompt = useTagStore((s) => s.clearPendingPrompt)
@@ -43,40 +43,49 @@ export default function GeneratorPage() {
     }
   }, [pendingPromptForGenerator, clearPendingPrompt])
 
-  // Fetch wildcard names list on mount for existence analysis in tester
-  useEffect(() => {
-    explorerApi.getTree().then((tree) => {
-      const list: string[] = []
-      const traverse = (node: any) => {
-        if (node.type === 'file') {
-          const cleanPath = node.path.replace(/\.(yaml|yml|txt)$/i, '').toLowerCase()
-          list.push(cleanPath)
-          const nameNoExt = node.name.replace(/\.(yaml|yml|txt)$/i, '').toLowerCase()
-          if (!list.includes(nameNoExt)) {
-            list.push(nameNoExt)
-          }
-        }
-        if (node.children) {
-          node.children.forEach(traverse)
+  const { data: tree } = useQuery({
+    queryKey: ['explorer-tree'],
+    queryFn: explorerApi.getTree,
+  })
+
+  const wildcardFilesList = useMemo(() => {
+    if (!tree) return []
+    const list: string[] = []
+    const traverse = (node: any) => {
+      if (node.type === 'file') {
+        const cleanPath = node.path.replace(/\.(yaml|yml|txt)$/i, '').toLowerCase()
+        list.push(cleanPath)
+        const nameNoExt = node.name.replace(/\.(yaml|yml|txt)$/i, '').toLowerCase()
+        if (!list.includes(nameNoExt)) {
+          list.push(nameNoExt)
         }
       }
-      traverse(tree)
-      setWildcardFilesList(list)
-    }).catch(() => {})
-  }, [activeTab])
+      if (node.children) {
+        node.children.forEach(traverse)
+      }
+    }
+    traverse(tree)
+    return list
+  }, [tree])
 
   const previewMutation = useMutation({
-    mutationFn: () => generatorApi.preview({ name, format, style, entries: entries.filter(Boolean) }),
+    mutationFn: () => generatorApi.preview({ name, format, style, entries: entries.filter((e) => e.trim()) }),
   })
 
   const createMutation = useMutation({
-    mutationFn: () => generatorApi.create({ name, format, style, entries: entries.filter(Boolean), target_folder: folder }),
-    onSuccess: (d) => toast.success(`Créé : ${d.path} (${d.entry_count} entrées)`),
+    mutationFn: () => generatorApi.create({ name, format, style, entries: entries.filter((e) => e.trim()), target_folder: folder }),
+    onSuccess: (d) => {
+      toast.success(`Créé : ${d.path} (${d.entry_count} entrées)`)
+      qc.invalidateQueries({ queryKey: ['explorer-tree'] })
+    },
     onError: (e: Error) => toast.error(e.message),
   })
 
   const testMutation = useMutation({
-    mutationFn: () => generatorApi.processPrompt(testPrompt, testCount),
+    mutationFn: () => {
+      const count = Math.max(1, Math.min(10, Number(testCount) || 1))
+      return generatorApi.processPrompt(testPrompt, count)
+    },
     onSuccess: () => toast.success('Prompt traité avec succès !'),
     onError: (e: Error) => toast.error(e.message),
   })
@@ -91,8 +100,12 @@ export default function GeneratorPage() {
   }
 
   // Detect wildcards in test prompt
-  const detectedWildcards = Array.from(testPrompt.matchAll(/__([A-Za-z0-9_./\\-]+)__/g)).map(m => m[1])
-  const uniqueWildcards = Array.from(new Set(detectedWildcards))
+  const uniqueWildcards = useMemo(() => {
+    const detectedWildcards = Array.from(testPrompt.matchAll(/__([A-Za-z0-9_./\\-]+)__/g)).map(m => m[1])
+    return Array.from(new Set(detectedWildcards))
+  }, [testPrompt])
+
+  const wildcardFilesSet = useMemo(() => new Set(wildcardFilesList), [wildcardFilesList])
 
   return (
     <div className="flex flex-col h-full p-5 gap-4">
@@ -163,7 +176,7 @@ export default function GeneratorPage() {
             {/* Entries */}
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               <div className="flex items-center justify-between">
-                <label className="text-xs text-gray-500 font-semibold">Entrées ({entries.filter(Boolean).length})</label>
+                <label className="text-xs text-gray-500 font-semibold">Entrées ({entries.filter((e) => e.trim()).length})</label>
                 <button className="btn-ghost text-xs" onClick={addEntry}><Plus size={12} /> Ajouter</button>
               </div>
               {entries.map((entry, i) => (
@@ -186,7 +199,7 @@ export default function GeneratorPage() {
               <button
                 className="btn-ghost"
                 onClick={() => previewMutation.mutate()}
-                disabled={!name.trim() || entries.filter(Boolean).length === 0 || previewMutation.isPending}
+                disabled={!name.trim() || entries.filter((e) => e.trim()).length === 0 || previewMutation.isPending}
               >
                 {previewMutation.isPending ? <Spinner size={12} /> : <Wand2 size={12} />}
                 Aperçu
@@ -194,7 +207,7 @@ export default function GeneratorPage() {
               <button
                 className="btn-primary flex-1 justify-center"
                 onClick={() => createMutation.mutate()}
-                disabled={!name.trim() || entries.filter(Boolean).length === 0 || createMutation.isPending}
+                disabled={!name.trim() || entries.filter((e) => e.trim()).length === 0 || createMutation.isPending}
               >
                 {createMutation.isPending ? <Spinner size={14} /> : <Download size={14} />}
                 Créer le fichier
@@ -245,7 +258,14 @@ export default function GeneratorPage() {
                   min={1}
                   max={10}
                   value={testCount}
-                  onChange={(e) => setTestCount(Math.max(1, Math.min(10, Number(e.target.value))))}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setTestCount(val === '' ? '' : Number(val))
+                  }}
+                  onBlur={() => {
+                    const count = Math.max(1, Math.min(10, Number(testCount) || 3))
+                    setTestCount(count)
+                  }}
                 />
               </div>
               <button
@@ -264,7 +284,7 @@ export default function GeneratorPage() {
                 <p className="text-xs text-gray-500 font-semibold font-mono uppercase tracking-wide">Wildcards détectés</p>
                 <div className="flex flex-wrap gap-2">
                   {uniqueWildcards.map((wc) => {
-                    const exists = wildcardFilesList.includes(wc.toLowerCase())
+                    const exists = wildcardFilesSet.has(wc.toLowerCase())
                     return (
                       <span key={wc} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs border ${
                         exists ? 'bg-studio-success/10 border-studio-success/30 text-studio-success' : 'bg-studio-danger/10 border-studio-danger/30 text-studio-danger'
