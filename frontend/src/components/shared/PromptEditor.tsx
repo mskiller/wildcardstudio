@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useRef, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { explorerApi } from '@/api/explorer'
 
 interface PromptEditorProps {
@@ -9,8 +10,9 @@ interface PromptEditorProps {
   rows?: number
 }
 
+const HIGHLIGHT_REGEX = /(__[A-Za-z0-9_./\\-]+__|\{[^{}]+\})/g
+
 export default function PromptEditor({ value, onChange, placeholder = '', className = '', rows = 4 }: PromptEditorProps) {
-  const [wildcards, setWildcards] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [suggestionIndex, setSuggestionIndex] = useState(0)
@@ -19,26 +21,31 @@ export default function PromptEditor({ value, onChange, placeholder = '', classN
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
   
-  useEffect(() => {
-    explorerApi.getTree().then((tree) => {
-      const list: string[] = []
-      const traverse = (node: any) => {
-        if (node.type === 'file') {
-          const cleanPath = node.path.replace(/\.(yaml|yml|txt)$/i, '')
-          list.push(cleanPath)
-          const nameNoExt = node.name.replace(/\.(yaml|yml|txt)$/i, '')
-          if (!list.includes(nameNoExt)) {
-            list.push(nameNoExt)
-          }
-        }
-        if (node.children) {
-          node.children.forEach(traverse)
+  const { data: tree } = useQuery({
+    queryKey: ['explorer-tree'],
+    queryFn: explorerApi.getTree,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  })
+
+  const wildcards = useMemo(() => {
+    if (!tree) return []
+    const list: string[] = []
+    const traverse = (node: any) => {
+      if (node.type === 'file') {
+        const cleanPath = node.path.replace(/\.(yaml|yml|txt)$/i, '')
+        list.push(cleanPath)
+        const nameNoExt = node.name.replace(/\.(yaml|yml|txt)$/i, '')
+        if (!list.includes(nameNoExt)) {
+          list.push(nameNoExt)
         }
       }
-      traverse(tree)
-      setWildcards(list.sort())
-    }).catch(() => {})
-  }, [])
+      if (node.children) {
+        node.children.forEach(traverse)
+      }
+    }
+    traverse(tree)
+    return list.sort()
+  }, [tree])
   
   const handleScroll = () => {
     if (textareaRef.current && backdropRef.current) {
@@ -57,7 +64,7 @@ export default function PromptEditor({ value, onChange, placeholder = '', classN
     const textBeforeCursor = val.substring(0, pos)
     const lastDoubleUnder = textBeforeCursor.lastIndexOf('__')
     
-    if (lastDoubleUnder !== -1 && lastDoubleUnder >= textBeforeCursor.length - 20) {
+    if (lastDoubleUnder !== -1 && lastDoubleUnder >= textBeforeCursor.length - 100) {
       const searchWord = textBeforeCursor.substring(lastDoubleUnder + 2)
       if (!searchWord.includes(' ') && !searchWord.includes('\n') && !searchWord.includes('__')) {
         const filtered = wildcards.filter((w) => w.toLowerCase().includes(searchWord.toLowerCase()))
@@ -115,10 +122,10 @@ export default function PromptEditor({ value, onChange, placeholder = '', classN
     
     const parts: React.ReactNode[] = []
     let lastIdx = 0
-    const regex = /(__[A-Za-z0-9_./\\-]+__|\{[^{}]+\})/g
+    HIGHLIGHT_REGEX.lastIndex = 0
     let match
     
-    while ((match = regex.exec(value)) !== null) {
+    while ((match = HIGHLIGHT_REGEX.exec(value)) !== null) {
       const matchIdx = match.index
       const matchText = match[0]
       
@@ -140,7 +147,7 @@ export default function PromptEditor({ value, onChange, placeholder = '', classN
         )
       }
       
-      lastIdx = regex.lastIndex
+      lastIdx = HIGHLIGHT_REGEX.lastIndex
     }
     
     if (lastIdx < value.length) {
@@ -183,7 +190,7 @@ export default function PromptEditor({ value, onChange, placeholder = '', classN
         style={{
           ...commonStyles,
           color: 'transparent',
-          caretColor: 'white',
+          caretColor: 'currentColor',
           minHeight: 'inherit',
           display: 'block',
         }}
@@ -191,6 +198,9 @@ export default function PromptEditor({ value, onChange, placeholder = '', classN
         onChange={handleChange}
         onScroll={handleScroll}
         onKeyDown={handleKeyDown}
+        onBlur={() => {
+          setTimeout(() => setShowSuggestions(false), 200)
+        }}
         placeholder={placeholder}
         rows={rows}
       />
@@ -214,4 +224,3 @@ export default function PromptEditor({ value, onChange, placeholder = '', classN
     </div>
   )
 }
-
