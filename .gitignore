@@ -1,0 +1,43 @@
+# Database
+db/
+*.db
+*.db-shm
+*.db-wal
+
+# Local wildcard libraries
+# Keep personal/content libraries and nested Git repos out of public commits.
+wildcards/
+
+# Backups
+backups/
+
+# Environment
+.env
+.env.*
+!.env.example
+.env.local
+
+# Node
+node_modules/
+frontend/dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+pytest-cache-files-*/
+backend/pytest-cache-files-*/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local agent metadata
+.agent/
+
+# IDE
+.vscode/
+.idea/
+*.swp

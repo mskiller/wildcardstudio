@@ -1,0 +1,64 @@
+services:
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: wildcardstudio-api
+    restart: unless-stopped
+    volumes:
+      - ./wildcards:/data/wildcards
+      - ./db:/data/db
+      - ./backups:/data/backups
+    environment:
+      - WILDCARDS_PATH=/data/wildcards
+      - DB_PATH=/data/db/wildcardstudio.db
+      - BACKUPS_PATH=/data/backups
+      - LOG_LEVEL=info
+      - DEFAULT_SIMILARITY_THRESHOLD=85
+      - BACKUP_ENABLED=true
+      - BACKUP_SCHEDULE=daily
+      - BACKUP_KEEP_LAST=7
+      - TOKEN_MODEL=cl100k_base
+      - GIT_ENABLED=true
+      - GIT_AUTO_COMMIT=false
+      - GIT_USER_NAME=WildcardStudio
+      - GIT_USER_EMAIL=local@wildcardstudio.local
+      - MAX_UPLOAD_SIZE_MB=50
+    ports:
+      - "8001:8000"
+    networks:
+      - studio-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: wildcardstudio-ui
+    restart: unless-stopped
+    ports:
+      - "8800:5173"
+    environment:
+      - VITE_API_URL=http://localhost/api
+    networks:
+      - studio-net
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: wildcardstudio-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - studio-net
+
+networks:
+  studio-net:
+    driver: bridge
