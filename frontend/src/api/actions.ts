@@ -1,4 +1,5 @@
 import { api } from './client'
+import { BULK_OPERATION_TIMEOUT_MS } from './timeouts'
 
 export interface ActionPreviewPayload {
   kind?: string
@@ -49,5 +50,9 @@ export interface ActionPreviewRequest {
 
 export const actionsApi = {
   preview: (body: ActionPreviewRequest = { action: 'dedupe_cleanup', source: 'auto', threshold: 85, max_groups: 100 }) =>
-    api.post<ActionPreview>('/actions/preview', body).then((r) => r.data),
+    api.post<ActionPreview>(
+      '/actions/preview',
+      body,
+      { timeout: BULK_OPERATION_TIMEOUT_MS },
+    ).then((r) => r.data),
 }

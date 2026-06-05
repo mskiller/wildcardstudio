@@ -1,4 +1,5 @@
 import { api } from './client'
+import { BULK_OPERATION_TIMEOUT_MS } from './timeouts'
 
 export interface DuplicateMember {
   entry_id: number
@@ -17,7 +18,9 @@ export interface DuplicateGroup {
 export const duplicatesApi = {
   scan: (threshold = 85, scope?: string) =>
     api.post<{ groups_found: number; entries_scanned: number; threshold: number }>(
-      '/duplicates/scan', { threshold, scope }
+      '/duplicates/scan',
+      { threshold, scope },
+      { timeout: BULK_OPERATION_TIMEOUT_MS },
     ).then((r) => r.data),
 
   groups: () =>

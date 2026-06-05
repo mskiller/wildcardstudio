@@ -1,6 +1,5 @@
 import { api } from './client'
-
-const LONG_TAG_IMPORT_TIMEOUT_MS = 300_000
+import { BULK_OPERATION_TIMEOUT_MS } from './timeouts'
 
 export interface Tag {
   id: number
@@ -54,6 +53,6 @@ export const tagsApi = {
     api.post<{ imported: number; updated: number; tags: string[] }>(
       '/tags/import-from-wildcards',
       undefined,
-      { timeout: LONG_TAG_IMPORT_TIMEOUT_MS },
+      { timeout: BULK_OPERATION_TIMEOUT_MS },
     ).then((r) => r.data),
 }

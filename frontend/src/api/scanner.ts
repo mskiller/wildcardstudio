@@ -1,6 +1,5 @@
 import { api } from './client'
-
-const LONG_SCAN_TIMEOUT_MS = 300_000
+import { BULK_OPERATION_TIMEOUT_MS } from './timeouts'
 
 export interface ScannerSummary {
   tag: number
@@ -55,7 +54,7 @@ export const scannerApi = {
     api.post<{ scanned: number; pruned?: number; status?: 'completed' | 'already_running' }>(
       '/scanner/scan',
       undefined,
-      { timeout: LONG_SCAN_TIMEOUT_MS },
+      { timeout: BULK_OPERATION_TIMEOUT_MS },
     ).then((r) => r.data),
 
   results: () =>
