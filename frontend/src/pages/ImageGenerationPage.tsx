@@ -11,9 +11,14 @@ import {
   Settings2,
   Trash2,
   Wand2,
+  Copy,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Spinner from '@/components/shared/Spinner'
+import PromptEditor from '@/components/shared/PromptEditor'
+import { generatorApi } from '@/api/generator'
 import {
   generationApi,
   type CapabilityOption,
@@ -141,6 +146,52 @@ export default function ImageGenerationPage() {
   const [selectedLora, setSelectedLora] = useState('')
   const [loraWeight, setLoraWeight] = useState(1)
   const [runs, setRuns] = useState<LocalRun[]>([])
+
+  const [processedPreview, setProcessedPreview] = useState('')
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(true)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  
+  // Debounce API call for processed prompt preview
+  useEffect(() => {
+    if (!prompt.trim()) {
+      setProcessedPreview('')
+      return
+    }
+    
+    setPreviewLoading(true)
+    const timer = setTimeout(() => {
+      generatorApi.processPrompt(prompt, 1)
+        .then((res) => {
+          if (res.processed.length > 0) {
+            setProcessedPreview(res.processed[0])
+          }
+        })
+        .catch(() => {})
+        .finally(() => setPreviewLoading(false))
+    }, 300)
+    
+    return () => clearTimeout(timer)
+  }, [prompt])
+
+  const handleRegeneratePreview = () => {
+    if (!prompt.trim()) return
+    setPreviewLoading(true)
+    generatorApi.processPrompt(prompt, 1)
+      .then((res) => {
+        if (res.processed.length > 0) {
+          setProcessedPreview(res.processed[0])
+        }
+      })
+      .catch(() => {})
+      .finally(() => setPreviewLoading(false))
+  }
+
+  const handleApplyPreview = () => {
+    if (processedPreview) {
+      setPrompt(processedPreview)
+      toast.success('Prompt appliqué !')
+    }
+  }
 
   const models = capabilities?.models ?? []
   const samplers = capabilities?.samplers ?? []
@@ -323,11 +374,12 @@ export default function ImageGenerationPage() {
                 <span className="badge bg-studio-muted text-gray-400">Non connecte</span>
               )}
             </div>
-            <textarea
-              className="input min-h-32 resize-y font-mono text-xs leading-relaxed"
+            <PromptEditor
+              className="card border border-studio-border bg-studio-surface/50"
               value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              placeholder="masterpiece, best quality, cinematic lighting..."
+              onChange={setPrompt}
+              placeholder="masterpiece, best quality, cinematic lighting, __wildcard__..."
+              rows={4}
             />
             <textarea
               className="input min-h-20 resize-y font-mono text-xs leading-relaxed"
@@ -335,6 +387,49 @@ export default function ImageGenerationPage() {
               onChange={(event) => setNegativePrompt(event.target.value)}
               placeholder="Negative prompt: low quality, blurry, watermark..."
             />
+            {/* Processed prompt preview panel */}
+            {prompt.trim() && (
+              <div className="border border-studio-border bg-studio-elevated/20 rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewExpanded(!isPreviewExpanded)}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 bg-studio-surface/40 hover:bg-studio-surface/60 transition-colors text-xs font-semibold text-gray-400"
+                >
+                  <span className="flex items-center gap-1.5">
+                    {previewLoading ? <Spinner size={10} /> : <span>✨</span>}
+                    Aperçu du prompt traité
+                  </span>
+                  {isPreviewExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+                
+                {isPreviewExpanded && (
+                  <div className="p-3.5 space-y-3 bg-studio-bg/40 border-t border-studio-border/60">
+                    <div className="p-3 bg-studio-bg font-mono text-xs text-gray-300 break-words leading-relaxed rounded border border-studio-border/40 select-all min-h-16 relative">
+                      {processedPreview || 'Résolution en cours...'}
+                    </div>
+                    
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        type="button"
+                        className="btn-ghost py-1 px-2.5 text-[11px]"
+                        onClick={handleRegeneratePreview}
+                        disabled={previewLoading}
+                      >
+                        🔄 Régénérer
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-ghost py-1 px-2.5 text-[11px] hover:text-studio-accent-glow"
+                        onClick={handleApplyPreview}
+                        disabled={!processedPreview}
+                      >
+                        📋 Appliquer au prompt
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {capabilities && (
