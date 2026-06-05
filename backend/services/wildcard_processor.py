@@ -3,6 +3,7 @@ import re
 import random
 from typing import List
 from sqlmodel import Session, select
+from sqlalchemy import func
 from models.wildcard import WildcardFile, WildcardEntry
 
 WILDCARD_PATTERN = re.compile(r"__([A-Za-z0-9_./\\-]+)__")
@@ -11,31 +12,30 @@ BRACE_PATTERN = re.compile(r"\{([^{}]+)\}")
 def resolve_wildcard(session: Session, wildcard_name: str) -> str:
     name_clean = wildcard_name.strip().lower().replace("\\", "/")
     
-    # Query all WildcardFiles to find the best match
-    files = session.exec(select(WildcardFile)).all()
-    matching_file = None
+    # Candidates for path and filename matching (lowercase)
+    candidates = [
+        name_clean,
+        name_clean + ".yaml",
+        name_clean + ".yml",
+        name_clean + ".txt",
+    ]
     
-    # 1. Exact relative path match without extension
-    for f in files:
-        path_no_ext, _ = os.path.splitext(f.path.lower())
-        if path_no_ext == name_clean:
-            matching_file = f
-            break
-            
-    # 2. Filename match without extension
+    # 1. Exact relative path match (case-insensitive)
+    matching_file = session.exec(
+        select(WildcardFile).where(func.lower(WildcardFile.path).in_(candidates))
+    ).first()
+    
+    # 2. Filename match (case-insensitive)
     if not matching_file:
-        for f in files:
-            filename_no_ext, _ = os.path.splitext(f.filename.lower())
-            if filename_no_ext == name_clean:
-                matching_file = f
-                break
-                
-    # 3. Partial path match
+        matching_file = session.exec(
+            select(WildcardFile).where(func.lower(WildcardFile.filename).in_(candidates))
+        ).first()
+        
+    # 3. Partial path match (case-insensitive contains)
     if not matching_file:
-        for f in files:
-            if name_clean in f.path.lower():
-                matching_file = f
-                break
+        matching_file = session.exec(
+            select(WildcardFile).where(func.lower(WildcardFile.path).contains(name_clean))
+        ).first()
                 
     if not matching_file:
         # Keep original reference if not found
@@ -85,11 +85,11 @@ def resolve_braces(text: str) -> str:
         else:
             options = inner.split("|")
             
-        if not options:
+        if not options or count_val <= 0:
             replacement = ""
         else:
             count_val = min(count_val, len(options))
-            chosen = random.sample(options, count_val) if count_val > 1 else [random.choice(options)]
+            chosen = random.sample(options, count_val)
             replacement = separator.join(chosen)
             
         text = text[:match.start()] + replacement + text[match.end():]

@@ -76,3 +76,31 @@ def test_resolve_wildcard_path_matching(session: Session):
     
     # 4. Unknown wildcard: keep reference
     assert process_prompt(session, "__unknown_wildcard__") == "__unknown_wildcard__"
+
+def test_resolve_braces_range_with_zero():
+    # Test range that can evaluate to 0, e.g. {0-1$$a}
+    # Since it's random, we can run it multiple times to cover both 0 and 1
+    results = set()
+    for _ in range(20):
+        res = resolve_braces("{0-1$$a}")
+        results.add(res)
+    assert "" in results
+    assert "a" in results
+    assert len(results) == 2
+
+def test_resolve_braces_range_selection():
+    # Test range selection like {1-3$$a|b|c}
+    # Since random.sample is used, the order and choice will vary, but count should be between 1 and 3
+    for _ in range(50):
+        res = resolve_braces("{1-3$$a|b|c}")
+        parts = [p.strip() for p in res.split(",") if p.strip()]
+        assert 1 <= len(parts) <= 3
+        for part in parts:
+            assert part in {"a", "b", "c"}
+        # Ensure no duplicates in the sample
+        assert len(parts) == len(set(parts))
+
+def test_resolve_braces_zero_count():
+    # Test specific 0 count brace selection like {0$$a|b}
+    res = resolve_braces("{0$$a|b}")
+    assert res == ""
