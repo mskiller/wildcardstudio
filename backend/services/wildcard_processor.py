@@ -20,10 +20,16 @@ def resolve_wildcard(session: Session, wildcard_name: str) -> str:
         name_clean + ".txt",
     ]
     
-    # 1. Exact relative path match (case-insensitive)
+    # 1. Exact relative path match (direct matching to utilize index)
     matching_file = session.exec(
-        select(WildcardFile).where(func.lower(WildcardFile.path).in_(candidates))
+        select(WildcardFile).where(WildcardFile.path.in_(candidates))
     ).first()
+    
+    # Fall back to case-insensitive relative path match
+    if not matching_file:
+        matching_file = session.exec(
+            select(WildcardFile).where(func.lower(WildcardFile.path).in_(candidates))
+        ).first()
     
     # 2. Filename match (case-insensitive)
     if not matching_file:
