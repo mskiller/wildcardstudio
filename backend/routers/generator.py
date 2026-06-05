@@ -11,9 +11,15 @@ from database import get_session
 from models.wildcard import WildcardFile, WildcardEntry
 from services.fuzzy_matcher import find_duplicates
 from services.file_watcher import index_file
+from services.wildcard_processor import process_prompt
 
 router = APIRouter()
 settings = get_settings()
+
+
+class ProcessPromptRequest(BaseModel):
+    prompt: str
+    count: int = 1
 
 
 class GeneratorPreviewRequest(BaseModel):
@@ -25,6 +31,15 @@ class GeneratorPreviewRequest(BaseModel):
 
 class GeneratorCreateRequest(GeneratorPreviewRequest):
     target_folder: str = ""
+
+
+@router.post("/process-prompt")
+def process_prompt_endpoint(req: ProcessPromptRequest, session: Session = Depends(get_session)):
+    """Resolve wildcards and curly braces in the given prompt."""
+    results = []
+    for _ in range(req.count):
+        results.append(process_prompt(session, req.prompt))
+    return {"original": req.prompt, "processed": results}
 
 
 @router.get("/suggestions")

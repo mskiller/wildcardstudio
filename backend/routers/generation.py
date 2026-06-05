@@ -12,6 +12,7 @@ from database import get_session
 from models.prompt import GenerationHistory
 from services import generation_connector
 from services.time_utils import utc_now
+from services.wildcard_processor import process_prompt
 
 router = APIRouter()
 settings = get_settings()
@@ -67,7 +68,11 @@ def get_generation_defaults(
 
 @router.post("/txt2img")
 def txt2img(body: Txt2ImgRequest, session: Session = Depends(get_session)):
+    original_prompt = body.prompt
+    processed_prompt = process_prompt(session, original_prompt)
+
     request_data = body.model_dump()
+    request_data["prompt"] = processed_prompt # Use processed prompt for connector call
     provider = request_data["provider"]
     base_url = generation_connector.normalize_base_url(provider, request_data.get("base_url"))
 
@@ -82,7 +87,7 @@ def txt2img(body: Txt2ImgRequest, session: Session = Depends(get_session)):
         record = GenerationHistory(
             provider=provider,
             base_url=base_url,
-            prompt=body.prompt,
+            prompt=original_prompt, # Keep original wildcard prompt in main column
             negative_prompt=body.negative_prompt,
             model=body.model or parameters.get("model"),
             sampler=body.sampler or parameters.get("sampler"),
@@ -98,6 +103,7 @@ def txt2img(body: Txt2ImgRequest, session: Session = Depends(get_session)):
                 {
                     "request": _public_request_metadata(request_data, base_url),
                     "response": _public_response_metadata(connector_response),
+                    "processed_prompt": processed_prompt, # Add processed prompt here
                 }
             ),
             status="completed",
