@@ -4,6 +4,7 @@ import os
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from typing import Any, Optional
+from sqlalchemy import func
 from sqlmodel import Session, select
 from datetime import datetime
 
@@ -54,20 +55,34 @@ def scan_all(session: Session = Depends(get_session)):
 
 
 @router.get("/results")
-def get_results(session: Session = Depends(get_session)):
-    files = session.exec(select(WildcardFile)).all()
-    tag_count = sum(1 for f in files if f.prompt_style == "tag")
-    nl_count = sum(1 for f in files if f.prompt_style == "nl")
-    mixed_count = sum(1 for f in files if f.prompt_style == "mixed")
-    unknown_count = sum(1 for f in files if f.prompt_style in (None, "unknown"))
+def get_results(
+    page: int = Query(1, ge=1),
+    limit: int = Query(500, ge=1, le=1000),
+    session: Session = Depends(get_session),
+):
+    offset = (page - 1) * limit
+    total = _scalar_count(session, select(func.count()).select_from(WildcardFile))
+    tag_count = _style_count(session, "tag")
+    nl_count = _style_count(session, "nl")
+    mixed_count = _style_count(session, "mixed")
+    unknown_count = total - tag_count - nl_count - mixed_count
+    files = session.exec(
+        select(WildcardFile)
+        .order_by(WildcardFile.path)
+        .offset(offset)
+        .limit(limit)
+    ).all()
     return {
         "summary": {
             "tag": tag_count,
             "nl": nl_count,
             "mixed": mixed_count,
             "unknown": unknown_count,
-            "total": len(files),
+            "total": total,
         },
+        "page": page,
+        "limit": limit,
+        "total": total,
         "files": [
             {
                 "path": f.path,
@@ -91,12 +106,23 @@ def get_results(session: Session = Depends(get_session)):
 
 
 @router.get("/file")
-def scan_file(path: str = Query(...), session: Session = Depends(get_session)):
+def scan_file(
+    path: str = Query(...),
+    limit: int = Query(500, ge=1, le=2000),
+    session: Session = Depends(get_session),
+):
     wf = session.exec(select(WildcardFile).where(WildcardFile.path == path)).first()
     if not wf:
         return {"error": "File not indexed"}
+    entry_total = _scalar_count(
+        session,
+        select(func.count()).select_from(WildcardEntry).where(WildcardEntry.file_id == wf.id),
+    )
     entries = session.exec(
-        select(WildcardEntry).where(WildcardEntry.file_id == wf.id)
+        select(WildcardEntry)
+        .where(WildcardEntry.file_id == wf.id)
+        .order_by(WildcardEntry.line_number, WildcardEntry.id)
+        .limit(limit)
     ).all()
     classified = []
     for e in entries:
@@ -116,6 +142,8 @@ def scan_file(path: str = Query(...), session: Session = Depends(get_session)):
     return {
         "path": path,
         "overall_style": wf.prompt_style,
+        "entry_total": entry_total,
+        "limit": limit,
         "entries": classified,
     }
 
@@ -167,3 +195,15 @@ def _reason_labels(value: Any) -> list[str]:
                 labels.append(f"{key}: {raw}")
         return labels
     return [str(value)]
+
+
+def _scalar_count(session: Session, statement) -> int:
+    value = session.exec(statement).one()
+    return int(value or 0)
+
+
+def _style_count(session: Session, style: str) -> int:
+    return _scalar_count(
+        session,
+        select(func.count()).select_from(WildcardFile).where(WildcardFile.prompt_style == style),
+    )

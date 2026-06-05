@@ -49,6 +49,14 @@ export interface ScannerEntry {
   syntax?: Record<string, number> | null
 }
 
+export interface ScannerResultsPage {
+  summary: ScannerSummary
+  files: ScannerFile[]
+  page: number
+  limit: number
+  total: number
+}
+
 export const scannerApi = {
   scan: () =>
     api.post<{ scanned: number; pruned?: number; status?: 'completed' | 'already_running' }>(
@@ -57,18 +65,23 @@ export const scannerApi = {
       { timeout: BULK_OPERATION_TIMEOUT_MS },
     ).then((r) => r.data),
 
-  results: () =>
-    api.get<{
-      summary: ScannerSummary
-      files: ScannerFile[]
-    }>('/scanner/results').then((r) => r.data),
+  results: (params?: { page?: number; limit?: number }) =>
+    api.get<ScannerResultsPage>('/scanner/results', {
+      params,
+      timeout: BULK_OPERATION_TIMEOUT_MS,
+    }).then((r) => r.data),
 
   scanFile: (path: string) =>
     api.get<{
       path: string
       overall_style: string
+      entry_total?: number
+      limit?: number
       entries: ScannerEntry[]
-    }>('/scanner/file', { params: { path } }).then((r) => r.data),
+    }>('/scanner/file', {
+      params: { path, limit: 500 },
+      timeout: BULK_OPERATION_TIMEOUT_MS,
+    }).then((r) => r.data),
 
   convert: (text: string, direction: 'nl_to_tag' | 'tag_to_nl') =>
     api.post<{ result: string; note: string }>('/scanner/convert', { text, direction }).then((r) => r.data),

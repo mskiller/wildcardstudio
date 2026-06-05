@@ -146,6 +146,9 @@ export default function ImageGenerationPage() {
   const samplers = capabilities?.samplers ?? []
   const schedulers = capabilities?.schedulers ?? []
   const loras = capabilities?.loras ?? []
+  const connectorReady = Boolean(
+    capabilities?.reachable && models.length > 0 && samplers.length > 0 && (provider === 'sdforge' || schedulers.length > 0),
+  )
   const supportsBatchSize = capabilities?.supports_batch_size ?? true
   const supportsBatchCount = capabilities?.supports_batch_count ?? true
 
@@ -187,6 +190,8 @@ export default function ImageGenerationPage() {
       applyCapabilities(data)
       if (data.reachable === false) {
         toast.error(data.errors?.[0] ?? 'Connecteur inaccessible')
+      } else if (!data.models?.length || !data.samplers?.length || (provider === 'comfyui' && !data.schedulers?.length)) {
+        toast.error(data.errors?.[0] ?? 'Connecteur detecte, mais options introuvables')
       } else {
         toast.success('Connecteur detecte')
       }
@@ -310,10 +315,10 @@ export default function ImageGenerationPage() {
                 <p className="text-sm font-medium text-white">Prompt</p>
                 <p className="text-xs text-gray-500">Testez une idee avec les reglages du connecteur actif.</p>
               </div>
-              {capabilities?.reachable ? (
+              {connectorReady ? (
                 <span className="badge bg-studio-success/15 text-studio-success">Connecte</span>
               ) : capabilities ? (
-                <span className="badge bg-studio-danger/15 text-studio-danger">Inaccessible</span>
+                <span className="badge bg-studio-warn/15 text-studio-warn">A verifier</span>
               ) : (
                 <span className="badge bg-studio-muted text-gray-400">Non connecte</span>
               )}
@@ -559,7 +564,12 @@ export default function ImageGenerationPage() {
 
 function ConnectorStatus({ capabilities }: { capabilities: GenerationCapabilities }) {
   const errors = capabilities.errors ?? []
-  if (capabilities.reachable && errors.length === 0) {
+  const missing = [
+    !capabilities.models?.length ? 'modeles' : null,
+    !capabilities.samplers?.length ? 'samplers' : null,
+    capabilities.provider === 'comfyui' && !capabilities.schedulers?.length ? 'schedulers' : null,
+  ].filter(Boolean)
+  if (capabilities.reachable && errors.length === 0 && missing.length === 0) {
     return (
       <div className="border border-studio-success/30 bg-studio-success/10 text-studio-success rounded-md px-3 py-2 text-xs flex items-start gap-2">
         <CheckCircle2 size={15} className="mt-0.5 shrink-0" />
@@ -581,6 +591,11 @@ function ConnectorStatus({ capabilities }: { capabilities: GenerationCapabilitie
       {errors.slice(0, 4).map((error, index) => (
         <p key={index} className="pl-6 leading-relaxed opacity-90">{error}</p>
       ))}
+      {missing.length > 0 && (
+        <p className="pl-6 leading-relaxed opacity-90">
+          Listes manquantes: {missing.join(', ')}.
+        </p>
+      )}
       {!capabilities.reachable && (
         <p className="pl-6 leading-relaxed opacity-90">
           Dans Docker sous Linux, lancez ComfyUI avec une ecoute reseau, par exemple <span className="font-mono">--listen 0.0.0.0</span>, puis reconnectez.

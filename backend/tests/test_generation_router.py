@@ -172,6 +172,39 @@ def test_comfyui_capabilities_expose_basic_workflow_defaults(monkeypatch, tmp_pa
     assert defaults["scheduler"] == "normal"
 
 
+def test_comfyui_capabilities_accept_flat_choice_payloads(monkeypatch, tmp_path: Path):
+    client = build_client(tmp_path)
+
+    monkeypatch.setattr(generation_connector, "_running_inside_container", lambda: False)
+
+    def fake_request_json(base_url, path, *, method="GET", payload=None, timeout=8.0):
+        if path == "/models/checkpoints":
+            return {"checkpoints": [{"filename": "endpoint-model.safetensors"}]}
+        if path == "/models/loras":
+            return {"files": [{"path": "detailer.safetensors"}]}
+        if path == "/object_info":
+            info = minimal_comfyui_object_info()
+            info["KSampler"]["input"]["required"]["sampler_name"] = ["euler", "dpmpp_2m"]
+            info["KSampler"]["input"]["required"]["scheduler"] = {"choices": ["normal", "karras"]}
+            return info
+        raise AssertionError(f"unexpected path {path}")
+
+    monkeypatch.setattr(generation_connector, "request_json", fake_request_json)
+
+    resp = client.get(
+        "/generation/capabilities",
+        params={"provider": "comfyui", "base_url": "http://127.0.0.1:8188"},
+    )
+
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["models"] == ["endpoint-model.safetensors"]
+    assert payload["loras"] == ["detailer.safetensors"]
+    assert payload["samplers"] == ["dpmpp_2m", "euler"]
+    assert payload["schedulers"] == ["karras", "normal"]
+    assert payload["errors"] == []
+
+
 def test_comfyui_connector_submits_workflow_and_fetches_real_image(monkeypatch):
     calls = []
     encoded_image_bytes = b"real png bytes"

@@ -127,6 +127,35 @@ def test_scanner_reasons_are_client_safe_arrays(tmp_path: Path):
     assert "tag_score: 90" in first_entry["classification_reasons"]
 
 
+def test_scanner_results_are_paginated_with_global_summary(tmp_path: Path):
+    client, engine = build_client(tmp_path)
+    seed_wildcards(engine)
+    with Session(engine) as session:
+        for idx, style in enumerate(["nl", "mixed", "unknown"], start=1):
+            session.add(WildcardFile(
+                path=f"bulk/file-{idx}.txt",
+                filename=f"file-{idx}.txt",
+                format="impact",
+                prompt_style=style,
+                entry_count=idx,
+            ))
+        session.commit()
+
+    first_page = client.get("/scanner/results", params={"page": 1, "limit": 2})
+    second_page = client.get("/scanner/results", params={"page": 2, "limit": 2})
+
+    assert first_page.status_code == 200
+    assert second_page.status_code == 200
+    first_payload = first_page.json()
+    second_payload = second_page.json()
+    assert first_payload["total"] == 4
+    assert first_payload["summary"]["total"] == 4
+    assert first_payload["summary"]["tag"] == 1
+    assert len(first_payload["files"]) == 2
+    assert second_payload["page"] == 2
+    assert len(second_payload["files"]) == 2
+
+
 def test_library_falls_back_to_indexed_wildcard_entries(tmp_path: Path):
     client, engine = build_client(tmp_path)
     seed_wildcards(engine)

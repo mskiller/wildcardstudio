@@ -181,6 +181,21 @@ def discover_comfyui(base_url: str, effective_base_url: Optional[str] = None) ->
             "Docker note: local connector URLs are reached as host.docker.internal from the backend container. "
             "On Linux, ComfyUI must listen on 0.0.0.0 or a LAN IP, not only 127.0.0.1."
         )
+    if reachable:
+        missing = [
+            label
+            for label, values in (
+                ("models", checkpoints),
+                ("samplers", samplers),
+                ("schedulers", schedulers),
+            )
+            if not values
+        ]
+        if missing:
+            errors.append(
+                "ComfyUI reached, but WildcardStudio could not discover "
+                f"{', '.join(missing)}. Check that ComfyUI exposes /object_info and has checkpoint models installed."
+            )
     payload = {
         "provider": "comfyui",
         "base_url": base_url,
@@ -527,15 +542,25 @@ def _extract_named_items(payload: Any) -> List[str]:
             if isinstance(item, str):
                 values.append(item)
             elif isinstance(item, dict):
-                value = item.get("name") or item.get("model_name") or item.get("title") or item.get("alias")
+                value = (
+                    item.get("name")
+                    or item.get("model_name")
+                    or item.get("title")
+                    or item.get("alias")
+                    or item.get("filename")
+                    or item.get("path")
+                )
                 if value:
                     values.append(str(value))
         return sorted(dict.fromkeys(values))
     if isinstance(payload, dict):
-        if isinstance(payload.get("models"), list):
-            return _extract_named_items(payload["models"])
-        if isinstance(payload.get("loras"), list):
-            return _extract_named_items(payload["loras"])
+        for key in ("models", "loras", "checkpoints", "files", "items", "data"):
+            if isinstance(payload.get(key), list):
+                values = _extract_named_items(payload[key])
+                if values:
+                    return values
+        if all(isinstance(value, str) for value in payload.values()):
+            return sorted(dict.fromkeys(str(value) for value in payload.values()))
     return []
 
 
@@ -602,9 +627,27 @@ def _supports_basic_comfyui_txt2img(node_support: Dict[str, Any]) -> bool:
 
 
 def _extract_choice_list(value: Any) -> List[str]:
-    if isinstance(value, list) and value and isinstance(value[0], list):
-        return sorted(dict.fromkeys(str(item) for item in value[0]))
-    return []
+    choices: Any = None
+    if isinstance(value, tuple):
+        value = list(value)
+    if isinstance(value, list):
+        if value and isinstance(value[0], (list, tuple)):
+            choices = value[0]
+        elif value and all(_is_scalar_choice(item) for item in value):
+            choices = value
+    elif isinstance(value, dict):
+        for key in ("choices", "options", "values", "enum", "items"):
+            raw = value.get(key)
+            if isinstance(raw, (list, tuple)):
+                choices = raw
+                break
+    if choices is None:
+        return []
+    return sorted(dict.fromkeys(str(item) for item in choices if _is_scalar_choice(item)))
+
+
+def _is_scalar_choice(value: Any) -> bool:
+    return isinstance(value, (str, int, float)) and str(value).strip() != ""
 
 
 def _extract_default_choice(value: Any, preferred: Tuple[str, ...] = ()) -> Optional[str]:

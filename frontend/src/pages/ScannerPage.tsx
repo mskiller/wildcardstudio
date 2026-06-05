@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
-import { ScanSearch, ArrowLeftRight, ChevronRight, AlertTriangle } from 'lucide-react'
+import { ScanSearch, ArrowLeftRight, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { scannerApi, type ScannerEntry, type ScannerFile } from '@/api/scanner'
 import { StyleBadge, FormatBadge } from '@/components/shared/Badge'
@@ -10,10 +10,12 @@ export default function ScannerPage() {
   const [convertText, setConvertText] = useState('')
   const [direction, setDirection] = useState<'nl_to_tag' | 'tag_to_nl'>('nl_to_tag')
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const pageSize = 500
 
   const { data: results, isLoading, error, refetch } = useQuery({
-    queryKey: ['scanner-results'],
-    queryFn: scannerApi.results,
+    queryKey: ['scanner-results', page],
+    queryFn: () => scannerApi.results({ page, limit: pageSize }),
   })
 
   const { data: selectedScan, isLoading: selectedLoading, error: selectedError } = useQuery({
@@ -31,6 +33,7 @@ export default function ScannerPage() {
         const pruned = d.pruned ? `, ${d.pruned} anciens retirés` : ''
         toast.success(`${d.scanned} fichiers analysés${pruned}`)
       }
+      setPage(1)
       refetch()
     },
     onError: (e: Error) => toast.error(e.message),
@@ -43,6 +46,7 @@ export default function ScannerPage() {
 
   const summary = results?.summary
   const selectedFile = results?.files.find((f) => f.path === selectedPath)
+  const totalPages = Math.max(1, Math.ceil((results?.total ?? 0) / (results?.limit ?? pageSize)))
 
   return (
     <div className="flex flex-col h-full p-5 gap-5">
@@ -186,6 +190,17 @@ export default function ScannerPage() {
           error={selectedError instanceof Error ? selectedError.message : null}
         />
       </div>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-end gap-3 border-t border-studio-border pt-3 text-xs text-gray-500">
+          <button className="btn-ghost text-xs" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
+            <ChevronLeft size={13} /> Precedent
+          </button>
+          <span>Page {page} / {totalPages} - {results?.total ?? 0} fichiers</span>
+          <button className="btn-ghost text-xs" disabled={page >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>
+            Suivant <ChevronRight size={13} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -251,7 +266,7 @@ function ScannerDetails({
   error,
 }: {
   file: ScannerFile | undefined
-  scan: { path: string; overall_style: string; entries: ScannerEntry[] } | undefined
+  scan: { path: string; overall_style: string; entry_total?: number; limit?: number; entries: ScannerEntry[] } | undefined
   loading: boolean
   error: string | null
 }) {
@@ -284,6 +299,11 @@ function ScannerDetails({
             {(scan?.entries ?? []).slice(0, 80).map((entry, index) => (
               <EntryCard key={`${entry.line_number ?? index}-${entry.content}`} entry={entry} index={index} />
             ))}
+            {scan?.entry_total != null && scan.entry_total > (scan.limit ?? scan.entries.length) && (
+              <p className="text-xs text-gray-600 text-center py-2">
+                {scan.entries.length} / {scan.entry_total} entrées chargées pour garder l'inspection fluide.
+              </p>
+            )}
             {(scan?.entries ?? []).length === 0 && (
               <p className="text-xs text-gray-600 text-center pt-8">Aucune entrée retournée par le scanner.</p>
             )}
