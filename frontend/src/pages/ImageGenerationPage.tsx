@@ -158,19 +158,32 @@ export default function ImageGenerationPage() {
       return
     }
     
+    let active = true
     setPreviewLoading(true)
+    
     const timer = setTimeout(() => {
       generatorApi.processPrompt(prompt, 1)
         .then((res) => {
-          if (res.processed.length > 0) {
+          if (active && res.processed.length > 0) {
             setProcessedPreview(res.processed[0])
           }
         })
-        .catch(() => {})
-        .finally(() => setPreviewLoading(false))
+        .catch((err) => {
+          if (active) {
+            console.error('Error processing prompt:', err)
+          }
+        })
+        .finally(() => {
+          if (active) {
+            setPreviewLoading(false)
+          }
+        })
     }, 300)
     
-    return () => clearTimeout(timer)
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
   }, [prompt])
 
   const handleRegeneratePreview = () => {
@@ -182,7 +195,9 @@ export default function ImageGenerationPage() {
           setProcessedPreview(res.processed[0])
         }
       })
-      .catch(() => {})
+      .catch((err: Error) => {
+        toast.error(`Erreur de traitement : ${err.message}`)
+      })
       .finally(() => setPreviewLoading(false))
   }
 
