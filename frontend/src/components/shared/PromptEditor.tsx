@@ -128,7 +128,7 @@ export default function PromptEditor({ value, onChange, placeholder = '', classN
       
       if (matchText.startsWith('__') && matchText.endsWith('__')) {
         parts.push(
-          <span key={matchIdx} className="text-studio-accent font-semibold bg-studio-accent/10 px-0.5 rounded">
+          <span key={matchIdx} className="text-cyan-400 font-semibold bg-cyan-400/10 px-0.5 rounded">
             {matchText}
           </span>
         )
@@ -149,17 +149,27 @@ export default function PromptEditor({ value, onChange, placeholder = '', classN
     
     return parts
   }
+
+  const commonStyles: React.CSSProperties = {
+    fontFamily: 'monospace',
+    fontSize: '12px',
+    lineHeight: '1.625',
+    padding: '8px 12px',
+    border: 'none',
+    margin: '0',
+    boxSizing: 'border-box',
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+  }
   
   return (
-    <div className={`relative ${className} w-full`} style={{ minHeight: `${rows * 24}px` }}>
+    <div className={`relative ${className} w-full bg-studio-elevated border border-studio-border rounded-md focus-within:border-studio-accent transition-colors`} style={{ minHeight: `${rows * 26}px` }}>
       {/* Backdrop */}
       <div
         ref={backdropRef}
-        className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none border border-transparent font-mono text-xs select-none overflow-y-auto overflow-x-hidden p-3.5 whitespace-pre-wrap break-words leading-relaxed text-gray-500 w-full h-full"
+        className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none select-none overflow-y-auto overflow-x-hidden text-gray-500 w-full h-full"
         style={{
-          fontFamily: 'monospace',
-          borderWidth: '1px',
-          boxSizing: 'border-box',
+          ...commonStyles,
           minHeight: 'inherit',
         }}
       >
@@ -169,13 +179,13 @@ export default function PromptEditor({ value, onChange, placeholder = '', classN
       {/* Transparent Textarea */}
       <textarea
         ref={textareaRef}
-        className="input w-full bg-transparent font-mono text-xs leading-relaxed resize-y relative z-10 focus:outline-none placeholder-transparent text-transparent caret-white"
+        className="w-full bg-transparent resize-y relative z-10 focus:outline-none placeholder-transparent text-transparent caret-white"
         style={{
-          fontFamily: 'monospace',
+          ...commonStyles,
           color: 'transparent',
           caretColor: 'white',
-          boxSizing: 'border-box',
           minHeight: 'inherit',
+          display: 'block',
         }}
         value={value}
         onChange={handleChange}
@@ -204,3 +214,4 @@ export default function PromptEditor({ value, onChange, placeholder = '', classN
     </div>
   )
 }
+
