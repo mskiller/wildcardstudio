@@ -15,10 +15,14 @@ export type CapabilityOption =
 
 export type GenerationCapabilities = {
   provider?: GenerationProvider
+  base_url?: string
+  effective_base_url?: string
+  reachable?: boolean
   models?: CapabilityOption[]
   samplers?: CapabilityOption[]
   schedulers?: CapabilityOption[]
   loras?: CapabilityOption[]
+  errors?: string[]
   supports_batch_size?: boolean
   supports_batch_count?: boolean
   defaults?: Partial<GenerationSettings> & { cfg_scale?: number }

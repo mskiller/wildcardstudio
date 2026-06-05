@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ScanLine, Eye, EyeOff, CheckCheck, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ScanLine, EyeOff, CheckCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { duplicatesApi, type DuplicateGroup } from '@/api/duplicates'
 import Spinner from '@/components/shared/Spinner'
@@ -12,18 +12,23 @@ export default function DuplicatesPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [threshold, setThreshold] = useState(85)
+  const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const requestOpenInEditor = useEditorStore((s) => s.requestOpenInEditor)
 
-  const { data: groups = [], isLoading, refetch } = useQuery({
-    queryKey: ['duplicate-groups'],
-    queryFn: duplicatesApi.groups,
+  const { data, isLoading } = useQuery({
+    queryKey: ['duplicate-groups', page],
+    queryFn: () => duplicatesApi.groups({ page, limit: 100, status: 'pending' }),
   })
+  const groups = data?.items ?? []
+  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / (data?.limit ?? 100)))
 
   const scanMutation = useMutation({
     mutationFn: () => duplicatesApi.scan(threshold),
     onSuccess: (d) => {
       toast.success(`${d.groups_found} groupes trouvés`)
+      setPage(1)
+      setSelected(new Set())
       qc.invalidateQueries({ queryKey: ['duplicate-groups'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -43,9 +48,6 @@ export default function DuplicatesPage() {
       qc.invalidateQueries({ queryKey: ['duplicate-groups'] })
     },
   })
-
-  const pending = groups.filter((g) => g.status === 'pending')
-  const done = groups.filter((g) => g.status !== 'pending')
 
   const toggleSelect = (id: number) =>
     setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -92,15 +94,15 @@ export default function DuplicatesPage() {
           </div>
         )}
         <div className="ml-auto flex gap-3 text-xs text-gray-500">
-          <span className="text-studio-warn">{pending.length} en attente</span>
-          <span className="text-studio-success">{done.length} traités</span>
+          <span className="text-studio-warn">{data?.pending ?? 0} en attente</span>
+          <span className="text-studio-success">{data?.done ?? 0} traités</span>
         </div>
       </div>
 
       {/* Groups */}
       {isLoading ? (
         <div className="flex justify-center pt-12"><Spinner /></div>
-      ) : pending.length === 0 ? (
+      ) : groups.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-gray-600">
           <CheckCheck size={40} className="mb-3 opacity-30" />
           <p className="text-sm">Aucun doublon en attente</p>
@@ -108,7 +110,7 @@ export default function DuplicatesPage() {
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto space-y-3">
-          {pending.map((g) => (
+          {groups.map((g) => (
             <GroupCard
               key={g.id}
               group={g}
@@ -118,6 +120,17 @@ export default function DuplicatesPage() {
               onOpenInEditor={openInEditor}
             />
           ))}
+        </div>
+      )}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 border-t border-studio-border pt-3 text-xs text-gray-500">
+          <button className="btn-ghost text-xs" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
+            <ChevronLeft size={13} /> Precedent
+          </button>
+          <span>Page {page} / {totalPages} - {data?.total ?? 0} groupes</span>
+          <button className="btn-ghost text-xs" disabled={page >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>
+            Suivant <ChevronRight size={13} />
+          </button>
         </div>
       )}
     </div>

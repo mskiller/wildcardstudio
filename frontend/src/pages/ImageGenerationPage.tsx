@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import {
   AlertCircle,
+  CheckCircle2,
   History,
   Image as ImageIcon,
   PlugZap,
@@ -184,7 +185,11 @@ export default function ImageGenerationPage() {
     mutationFn: () => generationApi.capabilities({ provider, base_url: baseUrl.trim() }),
     onSuccess: (data) => {
       applyCapabilities(data)
-      toast.success('Connecteur detecte')
+      if (data.reachable === false) {
+        toast.error(data.errors?.[0] ?? 'Connecteur inaccessible')
+      } else {
+        toast.success('Connecteur detecte')
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -305,8 +310,10 @@ export default function ImageGenerationPage() {
                 <p className="text-sm font-medium text-white">Prompt</p>
                 <p className="text-xs text-gray-500">Testez une idee avec les reglages du connecteur actif.</p>
               </div>
-              {capabilities ? (
+              {capabilities?.reachable ? (
                 <span className="badge bg-studio-success/15 text-studio-success">Connecte</span>
+              ) : capabilities ? (
+                <span className="badge bg-studio-danger/15 text-studio-danger">Inaccessible</span>
               ) : (
                 <span className="badge bg-studio-muted text-gray-400">Non connecte</span>
               )}
@@ -324,6 +331,10 @@ export default function ImageGenerationPage() {
               placeholder="Negative prompt: low quality, blurry, watermark..."
             />
           </div>
+
+          {capabilities && (
+            <ConnectorStatus capabilities={capabilities} />
+          )}
 
           <div className="card p-4 space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium text-white">
@@ -542,6 +553,39 @@ export default function ImageGenerationPage() {
           </div>
         </aside>
       </div>
+    </div>
+  )
+}
+
+function ConnectorStatus({ capabilities }: { capabilities: GenerationCapabilities }) {
+  const errors = capabilities.errors ?? []
+  if (capabilities.reachable && errors.length === 0) {
+    return (
+      <div className="border border-studio-success/30 bg-studio-success/10 text-studio-success rounded-md px-3 py-2 text-xs flex items-start gap-2">
+        <CheckCircle2 size={15} className="mt-0.5 shrink-0" />
+        <span>
+          Connecte via {capabilities.effective_base_url ?? capabilities.base_url ?? 'connecteur'}.
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="border border-studio-warn/40 bg-studio-warn/10 text-studio-warn rounded-md px-3 py-2 text-xs space-y-1">
+      <div className="flex items-start gap-2">
+        <AlertCircle size={15} className="mt-0.5 shrink-0" />
+        <span>
+          Connecteur non complet via {capabilities.effective_base_url ?? capabilities.base_url ?? 'URL inconnue'}.
+        </span>
+      </div>
+      {errors.slice(0, 4).map((error, index) => (
+        <p key={index} className="pl-6 leading-relaxed opacity-90">{error}</p>
+      ))}
+      {!capabilities.reachable && (
+        <p className="pl-6 leading-relaxed opacity-90">
+          Dans Docker sous Linux, lancez ComfyUI avec une ecoute reseau, par exemple <span className="font-mono">--listen 0.0.0.0</span>, puis reconnectez.
+        </p>
+      )}
     </div>
   )
 }

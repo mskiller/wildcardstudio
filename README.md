@@ -44,8 +44,7 @@ Open the app at [http://localhost](http://localhost).
 ## Local Data
 
 Place your wildcard libraries in `./wildcards/` when running the app. The
-directory contents are ignored by Git by default, except for
-`wildcards/README.md` and `wildcards/.gitkeep`.
+directory contents are ignored by Git by default.
 
 Runtime data is stored in:
 
@@ -55,6 +54,21 @@ Runtime data is stored in:
 - `.env` for local configuration
 
 These paths are intentionally excluded from public commits.
+
+## ComfyUI / SD Forge From Docker
+
+When WildcardStudio runs in Docker, local connector URLs such as
+`http://127.0.0.1:8188` are reached from inside the backend container through
+`host.docker.internal`.
+
+On Linux, start ComfyUI or SD Forge so it listens on the host network interface,
+not only on its own localhost. For ComfyUI, for example:
+
+```bash
+python main.py --listen 0.0.0.0
+```
+
+Then use `http://127.0.0.1:8188` or the host LAN IP in the WildcardStudio UI.
 
 ## Development
 

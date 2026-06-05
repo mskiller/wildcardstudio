@@ -175,11 +175,17 @@ def discover_comfyui(base_url: str, effective_base_url: Optional[str] = None) ->
 
     samplers, schedulers = _extract_comfyui_sampler_choices(object_info)
     node_support = _extract_comfyui_node_support(object_info)
+    reachable = bool(checkpoints or loras or object_info)
+    if not reachable and connector_url != base_url:
+        errors.append(
+            "Docker note: local connector URLs are reached as host.docker.internal from the backend container. "
+            "On Linux, ComfyUI must listen on 0.0.0.0 or a LAN IP, not only 127.0.0.1."
+        )
     payload = {
         "provider": "comfyui",
         "base_url": base_url,
         "effective_base_url": connector_url,
-        "reachable": bool(checkpoints or loras or object_info),
+        "reachable": reachable,
         "models": checkpoints,
         "loras": loras,
         "samplers": samplers,
@@ -219,11 +225,18 @@ def discover_sdforge(base_url: str, effective_base_url: Optional[str] = None) ->
     schedulers = _extract_named_items(_try_endpoint(connector_url, "/sdapi/v1/schedulers", errors))
     loras = _extract_named_items(_try_endpoint(connector_url, "/sdapi/v1/loras", errors))
 
+    reachable = bool(options or models or samplers or schedulers or loras)
+    if not reachable and connector_url != base_url:
+        errors.append(
+            "Docker note: local connector URLs are reached as host.docker.internal from the backend container. "
+            "On Linux, SD Forge must listen on 0.0.0.0 or a LAN IP, not only 127.0.0.1."
+        )
+
     payload = {
         "provider": "sdforge",
         "base_url": base_url,
         "effective_base_url": connector_url,
-        "reachable": bool(options or models or samplers or schedulers or loras),
+        "reachable": reachable,
         "models": models,
         "loras": loras,
         "samplers": samplers,

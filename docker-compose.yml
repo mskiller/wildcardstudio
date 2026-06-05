@@ -11,6 +11,7 @@ services:
       - ./db:/data/db
       - ./backups:/data/backups
     environment:
+      - WILDCARDSTUDIO_DOCKER=1
       - WILDCARDS_PATH=/data/wildcards
       - DB_PATH=/data/db/wildcardstudio.db
       - BACKUPS_PATH=/data/backups
@@ -27,6 +28,8 @@ services:
       - MAX_UPLOAD_SIZE_MB=50
     ports:
       - "8001:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - studio-net
 

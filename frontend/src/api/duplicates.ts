@@ -15,6 +15,15 @@ export interface DuplicateGroup {
   members: DuplicateMember[]
 }
 
+export interface DuplicateGroupsPage {
+  items: DuplicateGroup[]
+  page: number
+  limit: number
+  total: number
+  pending: number
+  done: number
+}
+
 export const duplicatesApi = {
   scan: (threshold = 85, scope?: string) =>
     api.post<{ groups_found: number; entries_scanned: number; threshold: number }>(
@@ -23,8 +32,14 @@ export const duplicatesApi = {
       { timeout: BULK_OPERATION_TIMEOUT_MS },
     ).then((r) => r.data),
 
-  groups: () =>
-    api.get<DuplicateGroup[]>('/duplicates/groups').then((r) => r.data),
+  groups: (params?: { page?: number; limit?: number; status?: 'pending' | 'merged' | 'ignored' | 'all' }) =>
+    api.get<DuplicateGroupsPage>('/duplicates/groups', {
+      params: {
+        page: params?.page,
+        limit: params?.limit,
+        status: params?.status,
+      },
+    }).then((r) => r.data),
 
   ignore: (id: number) =>
     api.post(`/duplicates/groups/${id}/ignore`).then((r) => r.data),
