@@ -29,16 +29,15 @@ def resolve_wildcard(session: Session, wildcard_name: str) -> str:
     
     # 2. Suffix match where wildcard_path ends with "/" + name_clean and starts with file's base name
     if not entries:
-        candidates = session.exec(
-            select(WildcardEntry, WildcardFile)
-            .join(WildcardFile)
-            .where(WildcardEntry.wildcard_path.like(f"%/{name_clean}"))
+        file_paths = session.exec(select(WildcardFile.path)).all()
+        candidate_paths = []
+        for fp in file_paths:
+            file_base = os.path.splitext(fp)[0].lower()
+            candidate_paths.append(f"{file_base}/{name_clean}")
+            
+        entries = session.exec(
+            select(WildcardEntry).where(WildcardEntry.wildcard_path.collate("NOCASE").in_(candidate_paths))
         ).all()
-        
-        for entry, wf in candidates:
-            file_base = os.path.splitext(wf.path)[0].lower()
-            if entry.wildcard_path.lower() == f"{file_base}/{name_clean}":
-                entries.append(entry)
 
     # 3. Fallback to existing file-based resolution (for flat files / whole-file matching)
     if not entries:
