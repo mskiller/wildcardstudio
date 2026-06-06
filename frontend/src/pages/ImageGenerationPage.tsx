@@ -69,6 +69,7 @@ type PersistedGenerationState = {
   negativePrompt?: string
   resolutionPreset?: ResolutionPresetId
   settings?: Partial<GenerationSettings>
+  capabilities?: GenerationCapabilities
 }
 
 type LocalRun = {
@@ -142,7 +143,7 @@ export default function ImageGenerationPage() {
   const [negativePrompt, setNegativePrompt] = useState(persisted.negativePrompt ?? '')
   const [resolutionPreset, setResolutionPreset] = useState<ResolutionPresetId>(persisted.resolutionPreset ?? 'square')
   const [settings, setSettings] = useState<GenerationSettings>(() => mergeSettings(persisted.settings))
-  const [capabilities, setCapabilities] = useState<GenerationCapabilities | null>(null)
+  const [capabilities, setCapabilities] = useState<GenerationCapabilities | null>(() => persisted.capabilities ?? null)
   const [selectedLora, setSelectedLora] = useState('')
   const [loraWeight, setLoraWeight] = useState(1)
   const [runs, setRuns] = useState<LocalRun[]>([])
@@ -226,9 +227,10 @@ export default function ImageGenerationPage() {
       negativePrompt,
       resolutionPreset,
       settings,
+      capabilities: capabilities ?? undefined,
     }
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
-  }, [provider, baseUrl, prompt, negativePrompt, resolutionPreset, settings])
+  }, [provider, baseUrl, prompt, negativePrompt, resolutionPreset, settings, capabilities])
 
   const updateSetting = <K extends keyof GenerationSettings>(key: K, value: GenerationSettings[K]) => {
     setSettings((current) => ({ ...current, [key]: value }))
@@ -249,6 +251,19 @@ export default function ImageGenerationPage() {
       batch_count: data.defaults?.batch_count ?? current.batch_count,
     }))
   }
+
+  useEffect(() => {
+    if (baseUrl.trim()) {
+      generationApi.capabilities({ provider, base_url: baseUrl.trim() })
+        .then((data) => {
+          applyCapabilities(data)
+        })
+        .catch((err) => {
+          console.error('Error auto-connecting to generation backend on mount:', err)
+        })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const discoverMutation = useMutation({
     mutationFn: () => generationApi.capabilities({ provider, base_url: baseUrl.trim() }),
