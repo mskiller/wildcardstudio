@@ -19,6 +19,7 @@ import toast from 'react-hot-toast'
 import Spinner from '@/components/shared/Spinner'
 import PromptEditor from '@/components/shared/PromptEditor'
 import { generatorApi } from '@/api/generator'
+import { useTagStore } from '@/store/tagStore'
 import {
   generationApi,
   type CapabilityOption,
@@ -277,6 +278,17 @@ export default function ImageGenerationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const pendingImagePrompt = useTagStore((s) => s.pendingPromptForImageGeneration)
+  const clearPendingImagePrompt = useTagStore((s) => s.clearPendingImagePrompt)
+
+  useEffect(() => {
+    if (pendingImagePrompt) {
+      setPrompt(pendingImagePrompt)
+      clearPendingImagePrompt()
+      toast.success('Prompt importé depuis le gestionnaire !')
+    }
+  }, [pendingImagePrompt, clearPendingImagePrompt])
+
   const discoverMutation = useMutation({
     mutationFn: () => generationApi.capabilities({ provider, base_url: baseUrl.trim() }),
     onSuccess: (data) => {
@@ -299,6 +311,7 @@ export default function ImageGenerationPage() {
         base_url: baseUrl.trim(),
         prompt,
         negative_prompt: negativePrompt,
+        processed_prompt: (processedPreview && !previewLoading) ? processedPreview : undefined,
         model: settings.model,
         sampler: settings.sampler,
         scheduler: settings.scheduler,
