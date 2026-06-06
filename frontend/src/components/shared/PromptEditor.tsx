@@ -10,7 +10,7 @@ interface PromptEditorProps {
   rows?: number
 }
 
-const HIGHLIGHT_REGEX = /(__[A-Za-z0-9_./\\-]+__|\{[^{}]+\})/g
+const HIGHLIGHT_REGEX = /(__[A-Za-z0-9_./\\*%-]+__|\{[^{}]+\})/g
 
 export default function PromptEditor({ value, onChange, placeholder = '', className = '', rows = 4 }: PromptEditorProps) {
   const [showSuggestions, setShowSuggestions] = useState(false)

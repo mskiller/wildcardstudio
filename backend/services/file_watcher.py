@@ -26,7 +26,7 @@ logger = logging.getLogger("wildcardstudio.watcher")
 
 _ws_clients: Set = set()
 _scan_lock = threading.Lock()
-WILDCARD_REF_RE = re.compile(r"__([A-Za-z0-9_./\\-]+)__")
+WILDCARD_REF_RE = re.compile(r"__([A-Za-z0-9_./\\*%-]+)__")
 VARIANT_RE = re.compile(r"\{([^{}]*\|[^{}]*)\}")
 WEIGHTED_TAG_RE = re.compile(r"\([^)]+:\d+(?:\.\d+)?\)")
 WEIGHTED_PREFIX_RE = re.compile(r"^::\d+(?:\.\d+)?::")

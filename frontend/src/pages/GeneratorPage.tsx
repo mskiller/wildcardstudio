@@ -101,7 +101,7 @@ export default function GeneratorPage() {
 
   // Detect wildcards in test prompt
   const uniqueWildcards = useMemo(() => {
-    const detectedWildcards = Array.from(testPrompt.matchAll(/__([A-Za-z0-9_./\\-]+)__/g)).map(m => m[1])
+    const detectedWildcards = Array.from(testPrompt.matchAll(/__([A-Za-z0-9_./\\*%-]+)__/g)).map(m => m[1])
     return Array.from(new Set(detectedWildcards))
   }, [testPrompt])
 

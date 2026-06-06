@@ -7,16 +7,25 @@ from sqlmodel import Session, select
 from sqlalchemy import func
 from models.wildcard import WildcardFile, WildcardEntry
 
-WILDCARD_PATTERN = re.compile(r"__([A-Za-z0-9_./\\-]+)__")
+WILDCARD_PATTERN = re.compile(r"__([A-Za-z0-9_./\\*%-]+)__")
 BRACE_PATTERN = re.compile(r"\{([^{}]+)\}")
 
 def resolve_wildcard(session: Session, wildcard_name: str) -> str:
     name_clean = wildcard_name.strip().lower().replace("\\", "/")
     
-    # 1. Search by exact wildcard_path in WildcardEntry (case-insensitive via NOCASE collation index)
-    entries = session.exec(
-        select(WildcardEntry).where(WildcardEntry.wildcard_path.collate("NOCASE") == name_clean)
-    ).all()
+    # 1. Search by exact wildcard_path in WildcardEntry (case-insensitive via NOCASE collation index or LIKE glob)
+    if "*" in name_clean:
+        like_pattern = name_clean.replace("*", "%")
+        entries = session.exec(
+            select(WildcardEntry).where(
+                (WildcardEntry.wildcard_path.like(like_pattern)) |
+                (WildcardEntry.wildcard_path.like(f"%/{like_pattern}"))
+            )
+        ).all()
+    else:
+        entries = session.exec(
+            select(WildcardEntry).where(WildcardEntry.wildcard_path.collate("NOCASE") == name_clean)
+        ).all()
     
     # 2. Suffix match where wildcard_path ends with "/" + name_clean and starts with file's base name
     if not entries:

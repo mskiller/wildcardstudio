@@ -172,3 +172,17 @@ def test_resolve_wildcard_hierarchical(session: Session):
     assert res3 == "A __lighting__ setup"
 
 
+def test_resolve_wildcard_glob(session: Session):
+    wf = WildcardFile(path="nested/scenes.yaml", filename="scenes.yaml", format="dynamic_prompts", entry_count=2)
+    session.add(wf)
+    session.flush()
+
+    session.add(WildcardEntry(file_id=wf.id, content="beach sunset", weight=1.0, wildcard_path="nested/scenes/random/beach"))
+    session.add(WildcardEntry(file_id=wf.id, content="forest cabin", weight=1.0, wildcard_path="nested/scenes/random/forest"))
+    session.commit()
+
+    # Match using Bo/scenes/random* pattern
+    res = process_prompt(session, "Place is __nested/scenes/random*__")
+    assert res in {"Place is beach sunset", "Place is forest cabin"}
+
+
