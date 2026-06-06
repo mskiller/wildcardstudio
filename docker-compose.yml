@@ -10,6 +10,7 @@ services:
       - ./wildcards:/data/wildcards
       - ./db:/data/db
       - ./backups:/data/backups
+      - ./backend:/app
     environment:
       - WILDCARDSTUDIO_DOCKER=1
       - WILDCARDS_PATH=/data/wildcards
