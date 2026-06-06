@@ -222,11 +222,11 @@ def index_file(path: str, session: Session) -> WildcardFile:
 
     raw = _read_text(path)
     fmt, entries = parse_file(path)
-    scores = [detect_style(content) for _line_no, content, _weight in entries]
+    scores = [detect_style(content) for _line_no, content, _weight, *_ in entries]
     style = classify_scores(scores)
     entry_metrics = [
         _entry_metrics(content, entry_style, tag_score, nl_score)
-        for (_line_no, content, _weight), (entry_style, tag_score, nl_score) in zip(entries, scores)
+        for (_, content, _, _), (entry_style, tag_score, nl_score) in zip(entries, scores)
     ]
     file_metrics = _file_metrics(path, raw, scores, style, entry_metrics)
 
@@ -270,10 +270,12 @@ def index_file(path: str, session: Session) -> WildcardFile:
         session.add(wf)
         session.flush()
 
-    for (line_no, content, weight), (e_style, _tag_score, _nl_score), metrics in zip(entries, scores, entry_metrics):
+    for entry_tuple, (e_style, _tag_score, _nl_score), metrics in zip(entries, scores, entry_metrics):
+        line_no, content, weight, wildcard_path = entry_tuple
         session.add(WildcardEntry(
             file_id=wf.id, line_number=line_no,
             content=content, weight=weight, prompt_style=e_style,
+            wildcard_path=wildcard_path,
             normalized_content=metrics["normalized_content"],
             tag_signature=metrics["tag_signature"],
             ref_signature=metrics["ref_signature"],

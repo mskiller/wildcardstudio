@@ -36,6 +36,7 @@ export default function WildcardEditor({
   tab,
   onChange,
   onSendLine,
+  onSendToImageGeneration,
   onModeChange,
   viewOptions,
   onViewOptionsChange,
@@ -43,6 +44,7 @@ export default function WildcardEditor({
   tab: EditorTabState
   onChange: (content: string) => void
   onSendLine: (payload: EditorLinePayload) => void
+  onSendToImageGeneration: (prompt: string) => void
   onModeChange: (mode: EditorMode) => void
   viewOptions: EditorViewOptions
   onViewOptionsChange: (next: Partial<EditorViewOptions>) => void
@@ -123,6 +125,18 @@ export default function WildcardEditor({
     if (raw) onSendLine({ file_path: tab.path, line_number: start, raw })
   }
 
+  const sendSelectedOrActiveLineToImageGeneration = () => {
+    const editor = editorRef.current
+    if (!editor) return
+    const model = editor.getModel()
+    const selection = editor.getSelection()
+    if (!model || !selection) return
+    const start = selection.startLineNumber
+    const end = selection.endLineNumber
+    const raw = Array.from({ length: end - start + 1 }, (_, o) => model.getLineContent(start + o)).join('\n').trim()
+    if (raw) onSendToImageGeneration(raw)
+  }
+
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     monacoRef.current = monaco
@@ -143,6 +157,13 @@ export default function WildcardEditor({
       contextMenuGroupId: 'navigation',
       contextMenuOrder: 1.5,
       run: sendSelectedOrActiveLine,
+    })
+    editor.addAction({
+      id: 'send-wildcard-line-to-image-generation',
+      label: 'Send prompt to Image Generator',
+      contextMenuGroupId: 'navigation',
+      contextMenuOrder: 1.6,
+      run: sendSelectedOrActiveLineToImageGeneration,
     })
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, sendSelectedOrActiveLine)
     updateWildcardMarkers(monaco, editor.getModel()!, tab.mode)

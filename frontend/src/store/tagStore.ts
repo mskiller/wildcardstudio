@@ -4,17 +4,22 @@ import { Tag } from '@/api/tags'
 interface TagState {
   selectedTags: Tag[]
   pendingPromptForGenerator: string | null
+  pendingPromptForImageGeneration: string | null
   toggleTag: (tag: Tag) => void
   removeTag: (tagId: number) => void
   reorderTags: (currentIndex: number, direction: 'up' | 'down') => void
   clearSelection: () => void
   sendToGenerator: () => void
   clearPendingPrompt: () => void
+  sendToImageGeneration: () => void
+  setPendingPromptForImageGeneration: (prompt: string | null) => void
+  clearPendingImagePrompt: () => void
 }
 
 export const useTagStore = create<TagState>((set) => ({
   selectedTags: [],
   pendingPromptForGenerator: null,
+  pendingPromptForImageGeneration: null,
 
   toggleTag: (tag) =>
     set((state) => {
@@ -62,4 +67,18 @@ export const useTagStore = create<TagState>((set) => ({
     }),
 
   clearPendingPrompt: () => set({ pendingPromptForGenerator: null }),
+
+  sendToImageGeneration: () =>
+    set((state) => {
+      if (state.selectedTags.length === 0) return {}
+      const prompt = state.selectedTags.map((t) => t.name).join(', ')
+      return {
+        pendingPromptForImageGeneration: prompt,
+        selectedTags: [],
+      }
+    }),
+
+  setPendingPromptForImageGeneration: (prompt) => set({ pendingPromptForImageGeneration: prompt }),
+
+  clearPendingImagePrompt: () => set({ pendingPromptForImageGeneration: null }),
 }))

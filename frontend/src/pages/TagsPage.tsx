@@ -93,10 +93,18 @@ export default function TagsPage() {
     toast.success('Prompt copié dans le presse-papiers !')
   }
 
+  const sendToImageGeneration = useTagStore((s) => s.sendToImageGeneration)
+
   const handleSendToGenerator = () => {
     sendToGenerator()
     toast.success('Prompt préparé. Redirection vers le générateur…')
     navigate('/generator')
+  }
+
+  const handleSendToImageGeneration = () => {
+    sendToImageGeneration()
+    toast.success('Prompt préparé. Redirection vers la génération d\'images…')
+    navigate('/generation')
   }
 
   return (
@@ -353,6 +361,12 @@ export default function TagsPage() {
               className="btn-primary w-full justify-center text-xs font-semibold"
             >
               Envoyer au générateur
+            </button>
+            <button
+              onClick={handleSendToImageGeneration}
+              className="btn-secondary w-full justify-center text-xs font-semibold bg-studio-accent/20 border border-studio-accent text-white hover:bg-studio-accent/30 transition-colors"
+            >
+              Envoyer à la génération d'images
             </button>
             <button
               onClick={clearSelection}

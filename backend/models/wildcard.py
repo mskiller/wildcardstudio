@@ -34,6 +34,7 @@ class WildcardEntry(SQLModel, table=True):
     line_number: Optional[int] = None
     content: str
     weight: float = Field(default=1.0)
+    wildcard_path: Optional[str] = Field(default=None, index=True)
     prompt_style: Optional[str] = None              # 'tag' | 'nl' | 'unknown'
     normalized_content: Optional[str] = None
     tag_signature: Optional[str] = None             # JSON array of normalized tag tokens

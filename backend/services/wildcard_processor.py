@@ -13,46 +13,59 @@ BRACE_PATTERN = re.compile(r"\{([^{}]+)\}")
 def resolve_wildcard(session: Session, wildcard_name: str) -> str:
     name_clean = wildcard_name.strip().lower().replace("\\", "/")
     
-    # Candidates for path and filename matching (lowercase)
-    candidates = [
-        name_clean,
-        name_clean + ".yaml",
-        name_clean + ".yml",
-        name_clean + ".txt",
-    ]
-    
-    # 1. Exact relative path match (direct matching to utilize index)
-    matching_file = session.exec(
-        select(WildcardFile).where(WildcardFile.path.in_(candidates))
-    ).first()
-    
-    # Fall back to case-insensitive relative path match
-    if not matching_file:
-        matching_file = session.exec(
-            select(WildcardFile).where(func.lower(WildcardFile.path).in_(candidates))
-        ).first()
-    
-    # 2. Filename match (case-insensitive)
-    if not matching_file:
-        matching_file = session.exec(
-            select(WildcardFile).where(func.lower(WildcardFile.filename).in_(candidates))
-        ).first()
-        
-    # 3. Partial path match (case-insensitive contains)
-    if not matching_file:
-        matching_file = session.exec(
-            select(WildcardFile).where(func.lower(WildcardFile.path).contains(name_clean))
-        ).first()
-                
-    if not matching_file:
-        # Keep original reference if not found
-        return f"__{wildcard_name}__"
-        
-    # Query all entries for this file
+    # 1. Search by exact wildcard_path in WildcardEntry (case-insensitive)
     entries = session.exec(
-        select(WildcardEntry).where(WildcardEntry.file_id == matching_file.id)
+        select(WildcardEntry).where(func.lower(WildcardEntry.wildcard_path) == name_clean)
     ).all()
     
+    # 2. Suffix match where wildcard_path ends with "/" + name_clean and starts with file's base name
+    if not entries:
+        candidates = session.exec(
+            select(WildcardEntry, WildcardFile)
+            .join(WildcardFile)
+            .where(func.lower(WildcardEntry.wildcard_path).like(f"%/{name_clean}"))
+        ).all()
+        
+        for entry, wf in candidates:
+            file_base = os.path.splitext(wf.path)[0].lower()
+            if entry.wildcard_path.lower() == f"{file_base}/{name_clean}":
+                entries.append(entry)
+
+    # 3. Fallback to existing file-based resolution (for flat files / whole-file matching)
+    if not entries:
+        candidates = [
+            name_clean,
+            name_clean + ".yaml",
+            name_clean + ".yml",
+            name_clean + ".txt",
+        ]
+        
+        matching_file = session.exec(
+            select(WildcardFile).where(WildcardFile.path.in_(candidates))
+        ).first()
+        
+        if not matching_file:
+            matching_file = session.exec(
+                select(WildcardFile).where(func.lower(WildcardFile.path).in_(candidates))
+            ).first()
+        
+        if not matching_file:
+            matching_file = session.exec(
+                select(WildcardFile).where(func.lower(WildcardFile.filename).in_(candidates))
+            ).first()
+            
+        if not matching_file:
+            matching_file = session.exec(
+                select(WildcardFile).where(func.lower(WildcardFile.path).contains(name_clean))
+            ).first()
+                    
+        if not matching_file:
+            return f"__{wildcard_name}__"
+            
+        entries = session.exec(
+            select(WildcardEntry).where(WildcardEntry.file_id == matching_file.id)
+        ).all()
+        
     if not entries:
         return ""
         

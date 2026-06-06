@@ -48,7 +48,7 @@ def prepare_merge(req: PrepareRequest, session: Session = Depends(get_session)):
             raise HTTPException(404, f"Source file not found: {path}")
         fmt, entries = parse_file(full)
         source_contents[path] = [e[1] for e in entries]
-        for line, content, weight in entries:
+        for line, content, weight, *_ in entries:
             all_entries.append({"id": len(all_entries), "file": path, "content": content})
 
     # Find duplicates between sources

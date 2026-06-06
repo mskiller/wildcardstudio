@@ -10,6 +10,7 @@ import WildcardEditor, { EditorLinePayload, EditorTabState, EditorViewOptions } 
 import AssistantPanel from '@/components/editor/AssistantPanel'
 import type { EditorMode } from '@/lib/wildcardLanguage'
 import { useEditorStore } from '@/store/editorStore'
+import { useTagStore } from '@/store/tagStore'
 
 type FileContentResponse = {
   path: string
@@ -222,6 +223,12 @@ export default function EditorPage() {
     navigate('/comparator', { state: { fromEditorLine: payload } })
   }
 
+  const onSendToImageGeneration = (prompt: string) => {
+    useTagStore.getState().setPendingPromptForImageGeneration(prompt)
+    toast.success('Prompt envoyé au générateur d\'images !')
+    navigate('/generation')
+  }
+
   useEffect(() => {
     localStorage.setItem('wildcard-editor-view-options', JSON.stringify(editorViewOptions))
   }, [editorViewOptions])
@@ -280,6 +287,7 @@ export default function EditorPage() {
               tab={activeEditor}
               onChange={(content) => updateEditorContent(activeEditor.path, content)}
               onSendLine={onSendLine}
+              onSendToImageGeneration={onSendToImageGeneration}
               onModeChange={(mode) => updateEditorMode(activeEditor.path, mode)}
               viewOptions={editorViewOptions}
               onViewOptionsChange={(next) => setEditorViewOptions((current) => ({ ...current, ...next }))}

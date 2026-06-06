@@ -218,36 +218,72 @@ export default function GalleryPage() {
 
               {/* Scrollable parameters block */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {/* Positive Prompt */}
+                {/* Positive Prompt (Original) */}
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className="text-[11px] text-gray-500 font-mono uppercase tracking-wider">Positive Prompt</span>
+                    <span className="text-[11px] text-gray-500 font-mono uppercase tracking-wider">Positive Prompt (Original)</span>
                     <button 
                       className="text-studio-accent-glow hover:underline flex items-center gap-1 text-[10px]"
-                      onClick={() => copyToClipboard(selectedItem.prompt, 'Prompt copié !')}
+                      onClick={() => copyToClipboard(selectedItem.prompt, 'Prompt original copié !')}
                     >
                       <Copy size={10} /> Copier
                     </button>
                   </div>
-                  <div className="p-3 rounded-lg bg-studio-bg border border-studio-border font-mono text-xs text-gray-300 select-all whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
+                  <div className="p-3 rounded-lg bg-studio-bg border border-studio-border font-mono text-xs text-gray-300 select-all whitespace-pre-wrap leading-relaxed max-h-24 overflow-y-auto">
                     {selectedItem.prompt || 'Aucun prompt'}
                   </div>
                 </div>
 
-                {/* Negative Prompt */}
+                {/* Positive Prompt (Traité) */}
+                {selectedItem.metadata?.processed_prompt && selectedItem.metadata.processed_prompt !== selectedItem.prompt && (
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[11px] text-studio-accent-glow font-mono uppercase tracking-wider">Positive Prompt (Traité)</span>
+                      <button 
+                        className="text-studio-accent-glow hover:underline flex items-center gap-1 text-[10px]"
+                        onClick={() => copyToClipboard(selectedItem.metadata.processed_prompt, 'Prompt traité copié !')}
+                      >
+                        <Copy size={10} /> Copier
+                      </button>
+                    </div>
+                    <div className="p-3 rounded-lg bg-studio-bg border border-studio-accent/25 font-mono text-xs text-gray-300 select-all whitespace-pre-wrap leading-relaxed max-h-24 overflow-y-auto">
+                      {selectedItem.metadata.processed_prompt}
+                    </div>
+                  </div>
+                )}
+
+                {/* Negative Prompt (Original) */}
                 {selectedItem.negative_prompt && (
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <span className="text-[11px] text-gray-500 font-mono uppercase tracking-wider">Negative Prompt</span>
+                      <span className="text-[11px] text-gray-500 font-mono uppercase tracking-wider">Negative Prompt (Original)</span>
                       <button 
                         className="text-studio-accent-glow hover:underline flex items-center gap-1 text-[10px]"
-                        onClick={() => copyToClipboard(selectedItem.negative_prompt, 'Negative prompt copié !')}
+                        onClick={() => copyToClipboard(selectedItem.negative_prompt, 'Negative prompt original copié !')}
                       >
                         <Copy size={10} /> Copier
                       </button>
                     </div>
                     <div className="p-3 rounded-lg bg-studio-bg border border-studio-border font-mono text-xs text-gray-400 select-all whitespace-pre-wrap leading-relaxed max-h-24 overflow-y-auto">
                       {selectedItem.negative_prompt}
+                    </div>
+                  </div>
+                )}
+
+                {/* Negative Prompt (Traité) */}
+                {selectedItem.metadata?.processed_negative_prompt && selectedItem.metadata.processed_negative_prompt !== selectedItem.negative_prompt && (
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[11px] text-studio-accent-glow font-mono uppercase tracking-wider">Negative Prompt (Traité)</span>
+                      <button 
+                        className="text-studio-accent-glow hover:underline flex items-center gap-1 text-[10px]"
+                        onClick={() => copyToClipboard(selectedItem.metadata.processed_negative_prompt, 'Negative prompt traité copié !')}
+                      >
+                        <Copy size={10} /> Copier
+                      </button>
+                    </div>
+                    <div className="p-3 rounded-lg bg-studio-bg border border-studio-accent/25 font-mono text-xs text-gray-400 select-all whitespace-pre-wrap leading-relaxed max-h-24 overflow-y-auto">
+                      {selectedItem.metadata.processed_negative_prompt}
                     </div>
                   </div>
                 )}

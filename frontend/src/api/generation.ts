@@ -83,6 +83,8 @@ export type Txt2ImgRequest = GenerationSettings & {
   prompt: string
   negative_prompt: string
   cfg_scale?: number
+  processed_prompt?: string
+  processed_negative_prompt?: string
 }
 
 export type Txt2ImgResponse = {

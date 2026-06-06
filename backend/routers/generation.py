@@ -29,6 +29,8 @@ class Txt2ImgRequest(BaseModel):
     base_url: Optional[str] = None
     prompt: str = Field(min_length=1)
     negative_prompt: Optional[str] = None
+    processed_prompt: Optional[str] = None
+    processed_negative_prompt: Optional[str] = None
     model: Optional[str] = None
     sampler: Optional[str] = None
     scheduler: Optional[str] = None
@@ -69,10 +71,10 @@ def get_generation_defaults(
 @router.post("/txt2img")
 def txt2img(body: Txt2ImgRequest, session: Session = Depends(get_session)):
     original_prompt = body.prompt
-    processed_prompt = process_prompt(session, original_prompt)
+    processed_prompt = body.processed_prompt if body.processed_prompt else process_prompt(session, original_prompt)
 
     original_negative_prompt = body.negative_prompt
-    processed_negative_prompt = (
+    processed_negative_prompt = body.processed_negative_prompt if body.processed_negative_prompt else (
         process_prompt(session, original_negative_prompt)
         if original_negative_prompt is not None
         else None
@@ -216,6 +218,7 @@ def _serialize_history(record: GenerationHistory) -> Dict[str, Any]:
         "status": record.status,
         "error": record.error,
         "created_at": record.created_at.isoformat() if record.created_at else None,
+        "metadata": json.loads(record.metadata_json or "{}"),
     }
 
 

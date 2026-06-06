@@ -60,6 +60,7 @@ MIGRATION_COLUMNS = {
         "variants_count": "INTEGER NOT NULL DEFAULT 0",
         "classification_score": "REAL",
         "classification_reasons": "TEXT",
+        "wildcard_path": "VARCHAR",
     },
     "wildcard_file_metadata": {
         "category": "VARCHAR",

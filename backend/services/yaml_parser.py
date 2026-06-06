@@ -20,22 +20,30 @@ def detect_format(path: str, content: str) -> str:
     return "impact"
 
 
-def parse_file(path: str) -> Tuple[str, List[Tuple[int, str, float]]]:
+def parse_file(path: str) -> Tuple[str, List[Tuple[int, str, float, Optional[str]]]]:
     """
     Parse a wildcard file.
-    Returns (format, [(line_number, content, weight), ...])
+    Returns (format, [(line_number, content, weight, wildcard_path), ...])
     """
     try:
         raw = open(path, encoding="utf-8", errors="replace").read()
     except Exception:
         return "impact", []
 
+    from config import get_settings
+    settings = get_settings()
+    try:
+        rel_path = os.path.relpath(path, settings.wildcards_path).replace("\\", "/")
+    except Exception:
+        rel_path = os.path.basename(path).replace("\\", "/")
+    base_path = os.path.splitext(rel_path)[0]
+
     fmt = detect_format(path, raw)
 
     if path.endswith(".txt"):
-        entries = _parse_txt(raw)
+        entries = [(line, text, weight, base_path) for line, text, weight in _parse_txt(raw)]
     else:
-        entries = _parse_yaml(raw, fmt)
+        entries = _parse_yaml(raw, fmt, base_path)
 
     return fmt, entries
 
@@ -50,38 +58,45 @@ def _parse_txt(content: str) -> List[Tuple[int, str, float]]:
     return entries
 
 
-def _parse_yaml(content: str, fmt: str) -> List[Tuple[int, str, float]]:
-    """Parse YAML file in impact or dynamic-prompts format."""
+def _parse_yaml(content: str, fmt: str, base_path: str) -> List[Tuple[int, str, float, Optional[str]]]:
+    """Parse YAML file in impact or dynamic-prompts format recursively."""
     try:
         data = yaml.safe_load(content)
     except yaml.YAMLError:
-        return _parse_txt(content)
+        return [(line, text, weight, base_path) for line, text, weight in _parse_txt(content)]
 
     entries = []
 
     if data is None:
         return entries
 
+    def walk(node, current_path: List[str], line_counter: List[int]):
+        if isinstance(node, list):
+            path_str = "/".join(current_path) if current_path else base_path
+            if current_path and not path_str.startswith(base_path + "/"):
+                path_str = f"{base_path}/{path_str}"
+            for item in node:
+                if item is not None:
+                    text, weight = _extract_weight(str(item))
+                    entries.append((line_counter[0], text, weight, path_str))
+                    line_counter[0] += 1
+        elif isinstance(node, dict):
+            for key, value in node.items():
+                walk(value, current_path + [str(key)], line_counter)
+        elif isinstance(node, (str, int, float, bool)):
+            path_str = "/".join(current_path) if current_path else base_path
+            if current_path and not path_str.startswith(base_path + "/"):
+                path_str = f"{base_path}/{path_str}"
+            text, weight = _extract_weight(str(node))
+            entries.append((line_counter[0], text, weight, path_str))
+            line_counter[0] += 1
+
+    line_counter = [1]
     if isinstance(data, list):
-        # Simple flat list — Impact format
-        for i, item in enumerate(data, start=1):
-            if item is not None:
-                text, weight = _extract_weight(str(item))
-                entries.append((i, text, weight))
+        walk(data, [], line_counter)
     elif isinstance(data, dict):
-        # Dynamic-Prompts: keys may be __wildcard_name__ or plain category names
-        line = 1
         for key, value in data.items():
-            if isinstance(value, list):
-                for item in value:
-                    if item is not None:
-                        text, weight = _extract_weight(str(item))
-                        entries.append((line, text, weight))
-                        line += 1
-            elif isinstance(value, str):
-                text, weight = _extract_weight(value)
-                entries.append((line, text, weight))
-                line += 1
+            walk(value, [str(key)], line_counter)
 
     return entries
 

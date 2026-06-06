@@ -6,7 +6,10 @@ from services.yaml_parser import parse_file, detect_format, render_preview
 
 
 def write_tmp(content: str, suffix: str = ".yaml") -> str:
-    f = tempfile.NamedTemporaryFile(mode="w", suffix=suffix, delete=False, encoding="utf-8")
+    from config import get_settings
+    settings = get_settings()
+    os.makedirs(settings.wildcards_path, exist_ok=True)
+    f = tempfile.NamedTemporaryFile(mode="w", suffix=suffix, dir=settings.wildcards_path, delete=False, encoding="utf-8")
     f.write(content)
     f.close()
     return f.name
@@ -51,3 +54,19 @@ def test_render_preview():
     samples = render_preview(entries, n=2)
     assert len(samples) == 2
     assert all(s in ["a", "b", "c"] for s in samples)
+
+
+def test_hierarchical_yaml_parser():
+    content = """
+Bo:
+  random:
+    anything:
+      - dramatic side lighting
+      - soft diffused light
+"""
+    path = write_tmp(content)
+    fmt, entries = parse_file(path)
+    base_name = os.path.splitext(os.path.basename(path))[0]
+    assert len(entries) == 2
+    assert entries[0][3] == f"{base_name}/Bo/random/anything"
+    os.unlink(path)

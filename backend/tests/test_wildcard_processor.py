@@ -146,3 +146,27 @@ def test_resolve_braces_non_finite_weights():
     assert "red" not in results_inf
 
 
+def test_resolve_wildcard_hierarchical(session: Session):
+    # Create a hierarchical wildcard file entry and check resolution
+    wf = WildcardFile(path="nested/billions.yaml", filename="billions.yaml", format="dynamic_prompts", entry_count=2)
+    session.add(wf)
+    session.flush()
+
+    # Add entries with wildcard_path
+    session.add(WildcardEntry(file_id=wf.id, content="dramatic lighting", weight=1.0, wildcard_path="nested/billions/Bo/lighting"))
+    session.add(WildcardEntry(file_id=wf.id, content="soft lighting", weight=1.0, wildcard_path="nested/billions/Bo/lighting"))
+    session.commit()
+
+    # 1. Exact match on wildcard_path: nested/billions/Bo/lighting
+    res1 = process_prompt(session, "A __nested/billions/Bo/lighting__ setup")
+    assert res1 in {"A dramatic lighting setup", "A soft lighting setup"}
+
+    # 2. Suffix match: Bo/lighting (ends with Bo/lighting and matches prefix nested/billions)
+    res2 = process_prompt(session, "A __Bo/lighting__ setup")
+    assert res2 in {"A dramatic lighting setup", "A soft lighting setup"}
+
+    # 3. Non-matching suffix (e.g. just lighting) should not resolve to Bo/lighting
+    res3 = process_prompt(session, "A __lighting__ setup")
+    assert res3 == "A __lighting__ setup"
+
+
