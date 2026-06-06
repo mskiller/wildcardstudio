@@ -13,9 +13,9 @@ BRACE_PATTERN = re.compile(r"\{([^{}]+)\}")
 def resolve_wildcard(session: Session, wildcard_name: str) -> str:
     name_clean = wildcard_name.strip().lower().replace("\\", "/")
     
-    # 1. Search by exact wildcard_path in WildcardEntry (case-insensitive)
+    # 1. Search by exact wildcard_path in WildcardEntry (case-insensitive via NOCASE collation index)
     entries = session.exec(
-        select(WildcardEntry).where(func.lower(WildcardEntry.wildcard_path) == name_clean)
+        select(WildcardEntry).where(WildcardEntry.wildcard_path.collate("NOCASE") == name_clean)
     ).all()
     
     # 2. Suffix match where wildcard_path ends with "/" + name_clean and starts with file's base name
@@ -23,7 +23,7 @@ def resolve_wildcard(session: Session, wildcard_name: str) -> str:
         candidates = session.exec(
             select(WildcardEntry, WildcardFile)
             .join(WildcardFile)
-            .where(func.lower(WildcardEntry.wildcard_path).like(f"%/{name_clean}"))
+            .where(WildcardEntry.wildcard_path.like(f"%/{name_clean}"))
         ).all()
         
         for entry, wf in candidates:

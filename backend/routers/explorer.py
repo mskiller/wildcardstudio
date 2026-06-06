@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconn
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
+from sqlalchemy import func
 
 from config import get_settings
 from database import get_session
@@ -122,17 +123,17 @@ def preview_file(path: str = Query(...), n: int = Query(5)):
 
 @router.get("/search")
 def search_files(q: str = Query(...), session: Session = Depends(get_session)):
-    results = []
     q_lower = q.lower()
-    entries = session.exec(
+    matches = session.exec(
         select(WildcardEntry, WildcardFile)
         .join(WildcardFile, WildcardEntry.file_id == WildcardFile.id)
+        .where(func.lower(WildcardEntry.content).like(f"%{q_lower}%"))
     ).all()
     seen_files = {}
-    for entry, wf in entries:
-        if q_lower in entry.content.lower():
-            if wf.path not in seen_files:
-                seen_files[wf.path] = {"path": wf.path, "matches": []}
+    for entry, wf in matches:
+        if wf.path not in seen_files:
+            seen_files[wf.path] = {"path": wf.path, "matches": []}
+        if len(seen_files[wf.path]["matches"]) < 50:
             seen_files[wf.path]["matches"].append({
                 "content": entry.content,
                 "line": entry.line_number,

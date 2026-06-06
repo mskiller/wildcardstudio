@@ -54,7 +54,8 @@ def _parse_txt(content: str) -> List[Tuple[int, str, float]]:
     for i, line in enumerate(content.splitlines(), start=1):
         line = line.strip()
         if line and not line.startswith("#"):
-            entries.append((i, line, 1.0))
+            text, weight = _extract_weight(line)
+            entries.append((i, text, weight))
     return entries
 
 
@@ -102,12 +103,17 @@ def _parse_yaml(content: str, fmt: str, base_path: str) -> List[Tuple[int, str, 
 
 
 def _extract_weight(text: str) -> Tuple[str, float]:
-    """Extract weight from Dynamic-Prompts syntax like '::1.5::content' or plain text."""
-    # Dynamic-Prompts weight prefix: ::N.N::text
-    m = re.match(r"^::(\d+(?:\.\d+)?)::(.*)", text.strip())
-    if m:
-        return m.group(2).strip(), float(m.group(1))
-    return text.strip(), 1.0
+    """Extract weight from Dynamic-Prompts/Impact syntax like '::1.5::content', '1.5::content' or plain text."""
+    text_stripped = text.strip()
+    # 1. Match ::N.N::text
+    m1 = re.match(r"^::(\d+(?:\.\d+)?)::(.*)", text_stripped)
+    if m1:
+        return m1.group(2).strip(), float(m1.group(1))
+    # 2. Match N.N::text or N::text
+    m2 = re.match(r"^(\d+(?:\.\d+)?)::(.*)", text_stripped)
+    if m2:
+        return m2.group(2).strip(), float(m2.group(1))
+    return text_stripped, 1.0
 
 
 def render_preview(entries: List[Tuple[int, str, float]], n: int = 5) -> List[str]:

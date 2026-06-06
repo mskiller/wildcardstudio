@@ -70,3 +70,34 @@ Bo:
     assert len(entries) == 2
     assert entries[0][3] == f"{base_name}/Bo/random/anything"
     os.unlink(path)
+
+
+def test_weights_parser():
+    # Test TXT weights
+    path1 = write_tmp("2::two weight\n1.5::onepointfive\nnormal entry\n", suffix=".txt")
+    fmt1, entries1 = parse_file(path1)
+    assert len(entries1) == 3
+    assert entries1[0][1] == "two weight"
+    assert entries1[0][2] == 2.0
+    assert entries1[1][1] == "onepointfive"
+    assert entries1[1][2] == 1.5
+    assert entries1[2][1] == "normal entry"
+    assert entries1[2][2] == 1.0
+    os.unlink(path1)
+
+    # Test YAML weights
+    content = """
+- 3::three weight
+- ::4::four weight
+- normal
+"""
+    path2 = write_tmp(content)
+    fmt2, entries2 = parse_file(path2)
+    assert len(entries2) == 3
+    assert entries2[0][1] == "three weight"
+    assert entries2[0][2] == 3.0
+    assert entries2[1][1] == "four weight"
+    assert entries2[1][2] == 4.0
+    assert entries2[2][1] == "normal"
+    assert entries2[2][2] == 1.0
+    os.unlink(path2)

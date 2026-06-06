@@ -88,6 +88,10 @@ MIGRATION_INDEXES = {
             "CREATE INDEX IF NOT EXISTS ix_wildcard_entry_file_id ON wildcard_entry (file_id)",
             {"file_id"},
         ),
+        "ix_wildcard_entry_wildcard_path": (
+            "CREATE INDEX IF NOT EXISTS ix_wildcard_entry_wildcard_path ON wildcard_entry (wildcard_path COLLATE NOCASE)",
+            {"wildcard_path"},
+        ),
     },
 }
 

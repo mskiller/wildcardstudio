@@ -13,6 +13,8 @@ def session_fixture():
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
+    from database import run_additive_migrations
+    run_additive_migrations(engine)
     with Session(engine) as session:
         yield session
 
