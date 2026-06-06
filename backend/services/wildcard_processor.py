@@ -1,6 +1,7 @@
 import os
 import re
 import random
+import math
 from typing import List
 from sqlmodel import Session, select
 from sqlalchemy import func
@@ -114,7 +115,9 @@ def resolve_braces(text: str) -> str:
                     weight_str, opt_val = opt_parts
                     try:
                         weight = float(weight_str)
-                        if weight < 0:
+                        if not math.isfinite(weight):
+                            weight = 0.0
+                        elif weight < 0:
                             weight = 0.0
                     except ValueError:
                         weight = 1.0

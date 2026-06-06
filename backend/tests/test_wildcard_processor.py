@@ -135,3 +135,14 @@ def test_resolve_braces_complex_delimiter():
         res2 = resolve_braces("{2$$ and $$red|blue|yellow}")
         assert res2 in possible
 
+def test_resolve_braces_non_finite_weights():
+    # Verify that nan or inf weights are handled gracefully and treated as 0.0
+    results_nan = [resolve_braces("{nan::red|1::blue}") for _ in range(50)]
+    assert "blue" in results_nan
+    assert "red" not in results_nan
+    
+    results_inf = [resolve_braces("{inf::red|1::blue}") for _ in range(50)]
+    assert "blue" in results_inf
+    assert "red" not in results_inf
+
+
