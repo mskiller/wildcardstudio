@@ -104,3 +104,34 @@ def test_resolve_braces_zero_count():
     # Test specific 0 count brace selection like {0$$a|b}
     res = resolve_braces("{0$$a|b}")
     assert res == ""
+
+def test_resolve_braces_weights():
+    # Verify option with weights e.g. {10::red|0::blue} chooses red significantly more often than blue
+    # and verify the weight prefix is stripped
+    results = [resolve_braces("{10::red|0::blue}") for _ in range(100)]
+    assert "red" in results
+    assert "blue" not in results
+    for r in results:
+        assert r == "red"
+
+    # Check mixed: one with weight prefix and one without (should default to 1.0)
+    results_mixed = [resolve_braces("{10::red|blue}") for _ in range(100)]
+    red_count = results_mixed.count("red")
+    blue_count = results_mixed.count("blue")
+    assert red_count > blue_count
+    for r in results_mixed:
+        assert r in ("red", "blue")
+
+def test_resolve_braces_complex_delimiter():
+    # Verify {2$$ and $$red|red} resolves to "red and red"
+    res1 = resolve_braces("{2$$ and $$red|red}")
+    assert res1 == "red and red"
+    
+    # Verify {2$$ and $$red|blue|yellow} resolves to combinations like "blue and yellow", "red and blue", etc.
+    possible = {
+        "red and blue", "red and yellow", "blue and red", "blue and yellow", "yellow and red", "yellow and blue"
+    }
+    for _ in range(50):
+        res2 = resolve_braces("{2$$ and $$red|blue|yellow}")
+        assert res2 in possible
+

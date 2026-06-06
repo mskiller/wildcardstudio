@@ -73,10 +73,24 @@ def resolve_braces(text: str) -> str:
         separator = ", "
         count_val = 1
         
-        parts = inner.split("$$", 1)
-        if len(parts) == 2:
-            prefix, options_str = parts
+        parts = inner.split("$$")
+        if len(parts) >= 3:
+            prefix = parts[0]
+            separator = parts[1]
+            options_str = "$$".join(parts[2:])
             options = options_str.split("|")
+            has_count = True
+        elif len(parts) == 2:
+            prefix = parts[0]
+            separator = ", "
+            options_str = parts[1]
+            options = options_str.split("|")
+            has_count = True
+        else:
+            options = inner.split("|")
+            has_count = False
+            
+        if has_count:
             if "-" in prefix:
                 try:
                     low, high = map(int, prefix.split("-"))
@@ -88,14 +102,45 @@ def resolve_braces(text: str) -> str:
                     count_val = int(prefix)
                 except ValueError:
                     count_val = 1
-        else:
-            options = inner.split("|")
-            
+        
         if not options or count_val <= 0:
             replacement = ""
         else:
-            count_val = min(count_val, len(options))
-            chosen = random.sample(options, count_val)
+            # Parse weights for each option
+            parsed_options = []
+            for opt in options:
+                opt_parts = opt.split("::", 1)
+                if len(opt_parts) == 2:
+                    weight_str, opt_val = opt_parts
+                    try:
+                        weight = float(weight_str)
+                        if weight < 0:
+                            weight = 0.0
+                    except ValueError:
+                        weight = 1.0
+                        opt_val = opt
+                else:
+                    weight = 1.0
+                    opt_val = opt
+                parsed_options.append((opt_val, weight))
+                
+            count_val = min(count_val, len(parsed_options))
+            
+            # Perform weighted sampling without replacement
+            pool = list(parsed_options)
+            chosen = []
+            for _ in range(count_val):
+                if not pool:
+                    break
+                total_weight = sum(item[1] for item in pool)
+                if total_weight <= 0:
+                    weights = [1.0] * len(pool)
+                else:
+                    weights = [item[1] for item in pool]
+                chosen_idx = random.choices(range(len(pool)), weights=weights, k=1)[0]
+                chosen_item = pool.pop(chosen_idx)
+                chosen.append(chosen_item[0])
+                
             replacement = separator.join(chosen)
             
         text = text[:match.start()] + replacement + text[match.end():]
