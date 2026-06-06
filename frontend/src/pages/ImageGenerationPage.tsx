@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import {
   AlertCircle,
@@ -148,6 +148,14 @@ export default function ImageGenerationPage() {
   const [loraWeight, setLoraWeight] = useState(1)
   const [runs, setRuns] = useState<LocalRun[]>([])
 
+  const providerRef = useRef(provider)
+  const baseUrlRef = useRef(baseUrl)
+
+  useEffect(() => {
+    providerRef.current = provider
+    baseUrlRef.current = baseUrl
+  }, [provider, baseUrl])
+
   const [processedPreview, setProcessedPreview] = useState('')
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(true)
   const [previewLoading, setPreviewLoading] = useState(false)
@@ -253,10 +261,14 @@ export default function ImageGenerationPage() {
   }
 
   useEffect(() => {
-    if (baseUrl.trim()) {
-      generationApi.capabilities({ provider, base_url: baseUrl.trim() })
+    const initialReqProvider = provider
+    const initialReqBaseUrl = baseUrl.trim()
+    if (initialReqBaseUrl) {
+      generationApi.capabilities({ provider: initialReqProvider, base_url: initialReqBaseUrl })
         .then((data) => {
-          applyCapabilities(data)
+          if (providerRef.current === initialReqProvider && baseUrlRef.current.trim() === initialReqBaseUrl) {
+            applyCapabilities(data)
+          }
         })
         .catch((err) => {
           console.error('Error auto-connecting to generation backend on mount:', err)
